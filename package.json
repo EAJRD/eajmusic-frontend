@@ -1,20 +1,30 @@
 {
-  "name": "copy-of-eajmusic-platform",
+  "name": "eajmusic-platform",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "cd server && npm run dev",
+    "dev:all": "npm run dev:server & npm run dev",
+    "start:server": "cd server && npm start",
+    "start:all": "npm run start:server & npm run preview",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "install:all": "npm install && cd server && npm install",
+    "db:migrate": "cd server && npm run db:migrate",
+    "db:seed": "cd server && npm run db:seed"
   },
   "dependencies": {
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "react-router-dom": "^7.13.0",
     "recharts": "^3.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"

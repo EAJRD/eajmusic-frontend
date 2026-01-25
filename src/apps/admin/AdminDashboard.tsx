@@ -1,15 +1,26 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { Logo } from '../../components/Icons';
-import PlansAndCommissions from './pages/PlansAndCommissions';
-import Announcements from './pages/Announcements';
-import SupportTickets from './pages/SupportTickets';
-import BrandSettings from './pages/BrandSettings';
-import ReleasesList from './pages/ReleasesList';
-import UsersList from './pages/UsersList';
-import AdminSettings from './pages/AdminSettings';
+
+// Placeholder components (in production these would be in separate files)
+const PlansAndCommissions = () => <div className="p-8"><h1 className="text-2xl font-bold">Plans & Commissions</h1><p className="text-slate-500">Coming soon...</p></div>;
+const Announcements = () => <div className="p-8"><h1 className="text-2xl font-bold">Announcements</h1><p className="text-slate-500">Coming soon...</p></div>;
+const SupportTickets = () => <div className="p-8"><h1 className="text-2xl font-bold">Support Tickets</h1><p className="text-slate-500">Coming soon...</p></div>;
+const BrandSettings = () => <div className="p-8"><h1 className="text-2xl font-bold">Brand Settings</h1><p className="text-slate-500">Coming soon...</p></div>;
+const ReleasesList = () => <div className="p-8"><h1 className="text-2xl font-bold">Releases</h1><p className="text-slate-500">Coming soon...</p></div>;
+const UsersList = () => <div className="p-8"><h1 className="text-2xl font-bold">Users</h1><p className="text-slate-500">Coming soon...</p></div>;
+const AdminSettings = () => <div className="p-8"><h1 className="text-2xl font-bold">Admin Settings</h1><p className="text-slate-500">Coming soon...</p></div>;
 
 const AdminDashboard: React.FC = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'plans' | 'announcements' | 'tickets' | 'brand' | 'releases' | 'users' | 'settings'>('overview');
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -101,12 +112,14 @@ const AdminDashboard: React.FC = () => {
 
         <div className="p-4 border-t border-slate-200 dark:border-dark-800">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-xs">AD</div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-bold truncate">Super Admin</p>
-              <p className="text-xs text-slate-400 truncate">admin@eajmusic.com</p>
+            <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-xs">
+              {user?.name?.substring(0, 2).toUpperCase() || 'AD'}
             </div>
-            <button className="text-slate-400 hover:text-white">
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-bold truncate">{user?.name || 'Admin'}</p>
+              <p className="text-xs text-slate-400 truncate">{user?.email || ''}</p>
+            </div>
+            <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 transition-colors" title="Logout">
               <span className="material-symbols-outlined text-[20px]">logout</span>
             </button>
           </div>

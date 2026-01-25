@@ -1,18 +1,51 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { Logo } from '../../components/Icons';
 import ThemeToggle from '../../components/ThemeToggle';
-import NewRelease from './pages/NewRelease';
-import TrackAnalytics from './pages/TrackAnalytics';
-import Wallet from './pages/Wallet';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import Support from './pages/Support';
-import SubmissionSuccessModal from './components/SubmissionSuccessModal';
+
+// Lazy placeholder components (in production, these would be separate files)
+const NewRelease = ({ onComplete, onCancel }: { onComplete: () => void; onCancel: () => void }) => (
+  <div className="p-8">
+    <h1 className="text-2xl font-bold mb-4">New Release</h1>
+    <p className="text-slate-500 mb-4">Upload form would go here</p>
+    <div className="flex gap-4">
+      <button onClick={onComplete} className="bg-brand-600 text-white px-4 py-2 rounded">Submit</button>
+      <button onClick={onCancel} className="bg-slate-200 px-4 py-2 rounded">Cancel</button>
+    </div>
+  </div>
+);
+
+const TrackAnalytics = () => <div className="p-8"><h1 className="text-2xl font-bold">Analytics</h1><p className="text-slate-500">Coming soon...</p></div>;
+const Wallet = () => <div className="p-8"><h1 className="text-2xl font-bold">Wallet</h1><p className="text-slate-500">Coming soon...</p></div>;
+const Profile = () => <div className="p-8"><h1 className="text-2xl font-bold">Profile</h1><p className="text-slate-500">Coming soon...</p></div>;
+const Settings = () => <div className="p-8"><h1 className="text-2xl font-bold">Settings</h1><p className="text-slate-500">Coming soon...</p></div>;
+const Support = () => <div className="p-8"><h1 className="text-2xl font-bold">Support</h1><p className="text-slate-500">Coming soon...</p></div>;
+
+const SubmissionSuccessModal = ({ onClose, onViewStatus }: { onClose: () => void; onViewStatus: () => void }) => (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white dark:bg-card-dark p-8 rounded-2xl max-w-md">
+      <h2 className="text-2xl font-bold mb-4">Release Submitted!</h2>
+      <p className="text-slate-500 mb-6">Your release has been submitted for review.</p>
+      <div className="flex gap-4">
+        <button onClick={onViewStatus} className="bg-brand-600 text-white px-4 py-2 rounded">View Status</button>
+        <button onClick={onClose} className="bg-slate-200 px-4 py-2 rounded">Close</button>
+      </div>
+    </div>
+  </div>
+);
 
 const ArtistDashboard: React.FC = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'music' | 'analytics' | 'wallet' | 'upload' | 'profile' | 'settings' | 'support'>('overview');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   // Mock function to simulate a submission completion
   const handleSubmissionComplete = () => {
@@ -38,7 +71,7 @@ const ArtistDashboard: React.FC = () => {
         return <Support />;
       case 'overview':
       default:
-        return <ArtistOverview onUploadClick={() => setActiveTab('upload')} />;
+        return <ArtistOverview onUploadClick={() => setActiveTab('upload')} userName={user?.name || 'Artist'} />;
     }
   };
 
@@ -149,12 +182,14 @@ const ArtistDashboard: React.FC = () => {
 
         <div className="p-4 border-t border-slate-200 dark:border-dark-800">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">CD</div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-bold truncate">Cyber Dreamer</p>
-              <p className="text-xs text-slate-400 truncate">artist@eajmusic.com</p>
+            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
+              {user?.name?.substring(0, 2).toUpperCase() || 'U'}
             </div>
-            <button className="text-slate-400 hover:text-white">
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-bold truncate">{user?.name || 'User'}</p>
+              <p className="text-xs text-slate-400 truncate">{user?.email || ''}</p>
+            </div>
+            <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 transition-colors" title="Logout">
               <span className="material-symbols-outlined text-[20px]">logout</span>
             </button>
           </div>
@@ -194,11 +229,19 @@ const NavItem = ({ icon, label, isActive, onClick, badge }: { icon: string, labe
   </button>
 );
 
-const ArtistOverview = ({ onUploadClick }: { onUploadClick: () => void }) => (
+const ArtistOverview = ({ onUploadClick, userName }: { onUploadClick: () => void; userName: string }) => {
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  return (
   <div className="p-8 max-w-7xl mx-auto space-y-8">
     <header className="flex justify-between items-end">
       <div>
-        <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Good Morning, Cyber Dreamer</h1>
+        <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">{getGreeting()}, {userName}</h1>
         <p className="text-slate-500 dark:text-slate-400">Here's how your music is performing today.</p>
       </div>
     </header>
@@ -265,6 +308,7 @@ const ArtistOverview = ({ onUploadClick }: { onUploadClick: () => void }) => (
     </div>
   </div>
 );
+};
 
 const MyMusic = () => (
   <div className="p-8 max-w-7xl mx-auto">
