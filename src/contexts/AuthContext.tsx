@@ -38,6 +38,15 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
 }
 
+interface AuthResponse {
+  success?: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  user?: User;
+  error?: string;
+  message?: string;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Token management
@@ -73,8 +82,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        const response = await api.get('/auth/me');
-        if (response.user) {
+        const response = await api.get<AuthResponse>('/auth/me');
+        if (response && response.user) {
           setUser(response.user);
         } else {
           clearStoredTokens();
@@ -92,15 +101,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Login
   const login = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
     try {
-      const response = await api.post('/auth/login', { email, password, rememberMe });
+      const response = await api.post<AuthResponse>('/auth/login', { email, password, rememberMe });
 
-      if (response.success && response.accessToken) {
+      if (response && response.accessToken && response.refreshToken) {
         setStoredTokens(response.accessToken, response.refreshToken);
-        setUser(response.user);
+        if (response.user) setUser(response.user);
         return { success: true };
       }
 
-      return { success: false, error: response.error || 'Login failed' };
+      return { success: false, error: response?.error || 'Login failed' };
     } catch (error: any) {
       return { success: false, error: error.message || 'Login failed' };
     }
@@ -109,15 +118,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Register
   const register = useCallback(async (name: string, email: string, password: string, accountType: string = 'ARTIST') => {
     try {
-      const response = await api.post('/auth/register', { name, email, password, accountType });
+      const response = await api.post<AuthResponse>('/auth/register', { name, email, password, accountType });
 
-      if (response.success && response.accessToken) {
+      if (response && response.accessToken && response.refreshToken) {
         setStoredTokens(response.accessToken, response.refreshToken);
-        setUser(response.user);
+        if (response.user) setUser(response.user);
         return { success: true };
       }
 
-      return { success: false, error: response.error || 'Registration failed' };
+      return { success: false, error: response?.error || 'Registration failed' };
     } catch (error: any) {
       return { success: false, error: error.message || 'Registration failed' };
     }
@@ -138,8 +147,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Refresh user data
   const refreshUser = useCallback(async () => {
     try {
-      const response = await api.get('/auth/me');
-      if (response.user) {
+      const response = await api.get<AuthResponse>('/auth/me');
+      if (response && response.user) {
         setUser(response.user);
       }
     } catch {
