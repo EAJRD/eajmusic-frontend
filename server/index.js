@@ -266,6 +266,16 @@ app.post('/api/admin/brand', (req, res) => {
     res.json({ success: true, brandSettings });
 });
 
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('SERVER ERROR:', err.stack);
+    res.status(500).json({
+        success: false,
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
+
 app.listen(PORT, () => {
     console.log(`✅ Backend running on http://localhost:${PORT}`);
 });
