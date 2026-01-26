@@ -1,9 +1,7 @@
 import React from 'react';
 
-import ThemeToggle from '../../components/ThemeToggle';
-
 interface HomeProps {
-  onNavigate: (domain: 'main' | 'artist' | 'admin' | 'login' | 'register') => void;
+  onNavigate: (domain: 'main' | 'artist' | 'admin' | 'login' | 'register' | 'about' | 'support' | 'terms' | 'privacy' | 'careers') => void;
 }
 
 const Home: React.FC<HomeProps> = ({ onNavigate }) => {
@@ -24,8 +22,8 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <div className="hidden md:flex items-center gap-10">
             <a href="#features" className="text-sm font-medium hover:text-primary transition-colors">Features</a>
             <a href="#pricing" className="text-sm font-medium hover:text-primary transition-colors">Pricing</a>
-            <a href="#" className="text-sm font-medium hover:text-primary transition-colors">Support</a>
-            <a href="#" className="text-sm font-medium hover:text-primary transition-colors">About</a>
+            <button onClick={() => onNavigate('support')} className="text-sm font-medium hover:text-primary transition-colors">Support</button>
+            <button onClick={() => onNavigate('about')} className="text-sm font-medium hover:text-primary transition-colors">About</button>
           </div>
           <div className="flex items-center gap-4">
             <button
@@ -40,7 +38,6 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             >
               Get Started
             </button>
-            <ThemeToggle />
           </div>
         </div>
       </nav>
@@ -213,7 +210,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </div>
             {/* Label Plus */}
             <div className="flex flex-col p-8 rounded-2xl bg-white dark:bg-background-dark border border-slate-200 dark:border-white/5">
-              <h3 classNam="text-lg font-bold mb-2">Label Plus</h3>
+              <h3 className="text-lg font-bold mb-2">Label Plus</h3>
               <div className="flex items-baseline gap-1 mb-6">
                 <span className="text-4xl font-black">$49.99</span>
                 <span className="text-slate-500">/year</span>
@@ -300,7 +297,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-24 bg-primary">
         <div className="max-w-4xl mx-auto px-6 text-center text-white">
           <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight">Ready to Take Your Music Career to the Next Level?</h2>
-          <p classNam="text-xl opacity-90 mb-10">Join thousands of artists who trust EAJMUSIC with their global distribution.</p>
+          <p className="text-xl opacity-90 mb-10">Join thousands of artists who trust EAJMUSIC with their global distribution.</p>
           <button
             onClick={() => onNavigate('register')}
             className="bg-white text-primary px-10 py-5 rounded-xl text-lg font-bold hover:bg-slate-100 transition-all shadow-2xl"
@@ -349,10 +346,10 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <div>
             <h4 className="font-bold mb-6">Company</h4>
             <ul className="flex flex-col gap-4 text-sm text-slate-500 dark:text-slate-400">
-              <li><a href="#" className="hover:text-primary transition-colors">About Us</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">Terms of Service</a></li>
+              <li><button onClick={() => onNavigate('about')} className="hover:text-primary transition-colors">About Us</button></li>
+              <li><button onClick={() => onNavigate('careers')} className="hover:text-primary transition-colors">Careers</button></li>
+              <li><button onClick={() => onNavigate('privacy')} className="hover:text-primary transition-colors">Privacy Policy</button></li>
+              <li><button onClick={() => onNavigate('terms')} className="hover:text-primary transition-colors">Terms of Service</button></li>
             </ul>
           </div>
           <div>

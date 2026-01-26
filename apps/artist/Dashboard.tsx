@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Logo } from '../../components/Icons';
 import ThemeToggle from '../../components/ThemeToggle';
+import ConnectionStatusBadge from '../../components/ConnectionStatusBadge';
 import NewRelease from './pages/NewRelease';
 import TrackAnalytics from './pages/TrackAnalytics';
 import Wallet from './pages/Wallet';
@@ -173,6 +174,9 @@ const ArtistDashboard: React.FC = () => {
           onViewStatus={() => { setShowSuccessModal(false); setActiveTab('music'); }}
         />
       )}
+
+      {/* Connection Status Indicator */}
+      <ConnectionStatusBadge position="bottom-right" showText={true} />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import { Release, ArtistStats, AdminStats, User, Report, TakedownRequest } from '../types';
 
-const API_BASE = 'http://localhost:5001/api';
+// Use environment variable with fallback to localhost for development
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 // Session management
 let currentSessionId: string | null = localStorage.getItem('sessionId');
