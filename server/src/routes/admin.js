@@ -523,6 +523,206 @@ router.post('/payouts/:id/process', asyncHandler(async (req, res) => {
 }));
 
 // ===========================================
+// BULK PAYOUT IMPORT (CSV)
+// ===========================================
+router.post('/payouts/bulk-complete', asyncHandler(async (req, res) => {
+  const { payouts } = req.body;
+
+  if (!payouts || !Array.isArray(payouts) || payouts.length === 0) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Payouts array is required',
+    });
+  }
+
+  // Validate the payouts array structure
+  const validMethods = ['paypal', 'bank_transfer', 'wire', 'check', 'crypto', 'wise', 'payoneer'];
+  const results = [];
+  let successCount = 0;
+  let failCount = 0;
+
+  // Process each payout record
+  for (const record of payouts) {
+    const { email, amount, method, transactionId } = record;
+
+    try {
+      // Validate required fields
+      if (!email || !amount || !method || !transactionId) {
+        results.push({
+          email: email || 'unknown',
+          success: false,
+          message: 'Missing required fields',
+        });
+        failCount++;
+        continue;
+      }
+
+      // Validate method
+      if (!validMethods.includes(method.toLowerCase())) {
+        results.push({
+          email,
+          success: false,
+          message: `Invalid payment method: ${method}`,
+        });
+        failCount++;
+        continue;
+      }
+
+      // Find user by email
+      const user = await prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+        include: { wallet: true },
+      });
+
+      if (!user) {
+        results.push({
+          email,
+          success: false,
+          message: 'User not found',
+        });
+        failCount++;
+        continue;
+      }
+
+      if (!user.wallet) {
+        results.push({
+          email,
+          success: false,
+          message: 'User wallet not found',
+        });
+        failCount++;
+        continue;
+      }
+
+      // Check for existing pending payout that matches the amount
+      const pendingPayout = await prisma.payout.findFirst({
+        where: {
+          userId: user.id,
+          status: 'PENDING',
+          amount: {
+            gte: parseFloat(amount) - 0.01,
+            lte: parseFloat(amount) + 0.01,
+          },
+        },
+        orderBy: { requestedAt: 'desc' },
+      });
+
+      if (pendingPayout) {
+        // Update existing payout to COMPLETED
+        await prisma.payout.update({
+          where: { id: pendingPayout.id },
+          data: {
+            status: 'COMPLETED',
+            processedAt: new Date(),
+            transactionId,
+            method: method.toLowerCase(),
+          },
+        });
+
+        // Audit log
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user.id,
+            action: 'PAYOUT_BULK_COMPLETED',
+            entityType: 'Payout',
+            entityId: pendingPayout.id,
+            newValues: {
+              email,
+              amount: parseFloat(amount),
+              transactionId,
+              method: method.toLowerCase(),
+            },
+            ipAddress: req.ip,
+          },
+        });
+
+        results.push({
+          email,
+          success: true,
+          message: 'Existing pending payout marked as completed',
+          payoutId: pendingPayout.id,
+        });
+        successCount++;
+      } else {
+        // Create a new completed payout record (for reconciliation/historical tracking)
+        const newPayout = await prisma.payout.create({
+          data: {
+            userId: user.id,
+            walletId: user.wallet.id,
+            amount: parseFloat(amount),
+            method: method.toLowerCase(),
+            methodDetails: { source: 'csv_import', originalMethod: method },
+            status: 'COMPLETED',
+            processedAt: new Date(),
+            transactionId,
+          },
+        });
+
+        // Audit log
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user.id,
+            action: 'PAYOUT_BULK_CREATED',
+            entityType: 'Payout',
+            entityId: newPayout.id,
+            newValues: {
+              email,
+              amount: parseFloat(amount),
+              transactionId,
+              method: method.toLowerCase(),
+            },
+            ipAddress: req.ip,
+          },
+        });
+
+        results.push({
+          email,
+          success: true,
+          message: 'New completed payout record created',
+          payoutId: newPayout.id,
+        });
+        successCount++;
+      }
+    } catch (error) {
+      console.error(`Error processing payout for ${email}:`, error);
+      results.push({
+        email,
+        success: false,
+        message: error.message || 'Internal processing error',
+      });
+      failCount++;
+    }
+  }
+
+  // Create a bulk import audit log
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user.id,
+      action: 'PAYOUT_BULK_IMPORT',
+      entityType: 'Payout',
+      entityId: null,
+      newValues: {
+        totalRecords: payouts.length,
+        successCount,
+        failCount,
+      },
+      ipAddress: req.ip,
+    },
+  });
+
+  res.json({
+    success: true,
+    message: `Processed ${payouts.length} payouts: ${successCount} successful, ${failCount} failed`,
+    results,
+    summary: {
+      total: payouts.length,
+      successful: successCount,
+      failed: failCount,
+    },
+  });
+}));
+
+// ===========================================
 // ANNOUNCEMENTS
 // ===========================================
 router.get('/announcements', asyncHandler(async (req, res) => {
