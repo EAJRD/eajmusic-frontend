@@ -343,6 +343,9 @@ export const AdminService = {
   processPayout: (id: string, action: 'COMPLETE' | 'FAIL', transactionId?: string, failureReason?: string) =>
     api.post<any>(`/admin/payouts/${id}/process`, { action, transactionId, failureReason }),
 
+  bulkCompletePayout: (payouts: Array<{ email: string; amount: number; method: string; transactionId: string }>) =>
+    api.post<any>('/admin/payouts/bulk-complete', { payouts }),
+
   // Announcements
   getAnnouncements: () => api.get<any>('/admin/announcements'),
 
