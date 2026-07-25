@@ -509,7 +509,11 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
     { expiresIn: '1h' }
   );
 
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+  // Prefer the Origin the request actually came from so the link lands the
+  // user back on whichever subdomain (main/artist/admin) they requested from,
+  // instead of always sending them to FRONTEND_URL's single configured domain.
+  const resetBaseUrl = req.get('origin') || process.env.FRONTEND_URL || 'http://localhost:3000';
+  const resetUrl = `${resetBaseUrl}/reset-password?token=${resetToken}`;
 
   // Dev-only fallback so the flow is testable without SMTP configured.
   // Never log a live reset token in production - it's a bearer credential.

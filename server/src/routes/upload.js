@@ -10,6 +10,12 @@ import { authenticate, isArtist } from '../middleware/auth.js';
 const router = Router();
 const prisma = new PrismaClient();
 
+// Prefer the explicit API_URL (documented in server/.env.example) so the URL
+// is stable regardless of what host/port the request came in on; fall back to
+// deriving it from the request itself (correct as long as `trust proxy` is set)
+// instead of a hardcoded localhost that's always wrong once deployed.
+const getBaseUrl = (req) => process.env.API_URL || `${req.protocol}://${req.get('host')}`;
+
 // ===========================================
 // STORAGE CONFIGURATION
 // ===========================================
@@ -111,7 +117,7 @@ router.post('/audio', authenticate, isArtist, uploadAudio.single('file'), asyncH
 
   // Generate file key/path
   const fileKey = `audio/${req.file.filename}`;
-  const fileUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5001}`}/uploads/${fileKey}`;
+  const fileUrl = `${getBaseUrl(req)}/uploads/${fileKey}`;
 
   // If releaseId and trackNumber provided, update the track
   if (releaseId && trackNumber) {
@@ -176,7 +182,7 @@ router.post('/audio/batch', authenticate, isArtist, uploadAudio.array('files', 3
     });
   }
 
-  const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 5001}`;
+  const baseUrl = getBaseUrl(req);
 
   const files = req.files.map(file => ({
     key: `audio/${file.filename}`,
@@ -206,7 +212,7 @@ router.post('/cover', authenticate, isArtist, uploadImage.single('file'), asyncH
   const { releaseId } = req.body;
 
   const fileKey = `images/${req.file.filename}`;
-  const fileUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5001}`}/uploads/${fileKey}`;
+  const fileUrl = `${getBaseUrl(req)}/uploads/${fileKey}`;
 
   // If releaseId provided, update the release
   if (releaseId) {
@@ -251,7 +257,7 @@ router.post('/avatar', authenticate, uploadImage.single('file'), asyncHandler(as
   }
 
   const fileKey = `images/${req.file.filename}`;
-  const fileUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5001}`}/uploads/${fileKey}`;
+  const fileUrl = `${getBaseUrl(req)}/uploads/${fileKey}`;
 
   // Update user avatar
   await prisma.user.update({
@@ -310,7 +316,7 @@ router.post('/presigned', authenticate, isArtist, asyncHandler(async (req, res) 
 
   res.json({
     success: true,
-    uploadUrl: `${process.env.API_URL || `http://localhost:${process.env.PORT || 5001}`}/api/upload/${isAudio ? 'audio' : 'cover'}`,
+    uploadUrl: `${getBaseUrl(req)}/api/upload/${isAudio ? 'audio' : 'cover'}`,
     key: `${isAudio ? 'audio' : 'images'}/${key}`,
     method: 'POST',
     fields: {
