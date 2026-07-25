@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ArtistService, UploadService } from '../../../src/services/api';
 
 interface NewReleaseProps {
     onComplete?: () => void;
@@ -51,6 +52,11 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
     const [cLineName, setCLineName] = useState('');
     const [pLineYear, setPLineYear] = useState('2023');
     const [pLineName, setPLineName] = useState('');
+
+    // Step 3 state
+    const [agreedToTerms, setAgreedToTerms] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState('');
 
     // Calculate minimum release date (3 weeks from today)
     const getMinReleaseDate = () => {
@@ -171,6 +177,89 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
         setContributors(prev => prev.map(c =>
             c.id === id ? { ...c, [field]: value } : c
         ));
+    };
+
+    const RELEASE_TYPE_MAP: Record<string, string> = { Single: 'SINGLE', EP: 'EP', Album: 'ALBUM' };
+    const LANGUAGE_MAP: Record<string, string> = {
+        English: 'EN', Spanish: 'ES', French: 'FR', German: 'DE', Portuguese: 'PT',
+        Italian: 'IT', Japanese: 'JA', Korean: 'KO', Mandarin: 'ZH', Other: 'EN',
+    };
+    const CONTRIBUTOR_ROLE_MAP: Record<string, string> = {
+        'Primary Artist': 'PRIMARY_ARTIST',
+        'Featured Artist': 'FEATURED',
+        'Producer': 'PRODUCER',
+        'Songwriter': 'SONGWRITER',
+        'Remixer': 'PRODUCER',
+    };
+
+    const handleSubmitRelease = async () => {
+        setSubmitError('');
+
+        if (audioFiles.length === 0) { setSubmitError('Please upload at least one audio file.'); setStep(1); return; }
+        if (!coverArt) { setSubmitError('Please upload cover artwork.'); setStep(1); return; }
+        if (!releaseTitle.trim()) { setSubmitError('Please enter a release title.'); setStep(1); return; }
+        if (!releaseDate) { setSubmitError('Please choose a release date.'); setStep(1); return; }
+        if (!agreedToTerms) { setSubmitError('Please confirm you have full rights to this content.'); return; }
+
+        setSubmitting(true);
+        try {
+            const sharedContributors = contributors
+                .filter(c => c.name.trim())
+                .map(c => ({
+                    name: c.name.trim(),
+                    role: CONTRIBUTOR_ROLE_MAP[c.role] || 'PRIMARY_ARTIST',
+                    royaltyPercentage: Math.max(0, Math.min(100, parseFloat(c.share) || 0)),
+                }));
+
+            const tracks = audioFiles.map((file, index) => {
+                const meta = trackMetadata[index] || { title: '', artists: '', isrc: '' };
+                const isrc = (meta.isrc || '').replace(/\s/g, '').toUpperCase();
+                return {
+                    title: meta.title.trim() || file.name.replace(/\.[^/.]+$/, ''),
+                    trackNumber: index + 1,
+                    discNumber: 1,
+                    isrc: isrc.length === 12 ? isrc : undefined,
+                    isExplicit,
+                    contributors: sharedContributors,
+                };
+            });
+
+            const cleanUpc = upc.replace(/\s/g, '');
+
+            const created = await ArtistService.createRelease({
+                title: releaseTitle.trim(),
+                releaseType: RELEASE_TYPE_MAP[releaseType] || 'SINGLE',
+                genre,
+                language: LANGUAGE_MAP[language] || 'EN',
+                releaseDate,
+                upc: cleanUpc.length === 13 ? cleanUpc : undefined,
+                cLineYear: cLineYear ? parseInt(cLineYear, 10) : undefined,
+                cLineText: cLineName.trim() || undefined,
+                pLineYear: pLineYear ? parseInt(pLineYear, 10) : undefined,
+                pLineText: pLineName.trim() || undefined,
+                isExplicit,
+                tracks,
+            });
+
+            const releaseId = created?.release?.id;
+            if (!releaseId) throw new Error('Release was created but no ID was returned.');
+
+            // Cover art upload attaches directly to the release (releaseId is passed).
+            await UploadService.uploadCover(coverArt, releaseId);
+
+            // Attach each audio file to its track by track number.
+            for (let i = 0; i < audioFiles.length; i++) {
+                await UploadService.uploadAudio(audioFiles[i], releaseId, i + 1);
+            }
+
+            await ArtistService.submitRelease(releaseId);
+
+            onComplete?.();
+        } catch (err: any) {
+            setSubmitError(err.message || 'Failed to submit release. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     // Derived Artist Name for Review
@@ -624,28 +713,36 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                         </div>
                         <div>
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Release Date</p>
-                            <p className="text-sm font-bold text-slate-900 dark:text-white">ASAP</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">
+                                {releaseDate ? new Date(releaseDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Not set'}
+                            </p>
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Stores</p>
-                            <div className="flex gap-2">
-                                <span className="size-6 rounded-full bg-slate-200 dark:bg-slate-700" title="Spotify"></span>
-                                <span className="size-6 rounded-full bg-slate-200 dark:bg-slate-700" title="Apple Music"></span>
-                                <span className="size-6 rounded-full bg-slate-200 dark:bg-slate-700" title="Amazon"></span>
-                                <span className="text-xs text-slate-400 flex items-center">+42</span>
-                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tracks</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">{audioFiles.length} track{audioFiles.length !== 1 ? 's' : ''} ({releaseType})</p>
                         </div>
                     </div>
 
                     <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
                         <label className="flex items-start gap-4 cursor-pointer p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                            <input type="checkbox" className="size-5 rounded border-slate-300 text-primary focus:ring-primary mt-0.5" />
+                            <input
+                                type="checkbox"
+                                checked={agreedToTerms}
+                                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                                className="size-5 rounded border-slate-300 text-primary focus:ring-primary mt-0.5"
+                            />
                             <div className="space-y-1">
                                 <span className="font-bold text-sm text-slate-900 dark:text-white">I confirm I have full rights to this content</span>
                                 <p className="text-xs text-slate-500 leading-relaxed">I agree to the Terms of Service and confirm this release does not contain unauthorized samples.</p>
                             </div>
                         </label>
                     </div>
+
+                    {submitError && (
+                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+                            {submitError}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -683,7 +780,8 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                 <div className="max-w-[1600px] mx-auto flex flex-col-reverse md:flex-row justify-between items-center gap-4">
                     <button
                         onClick={onCancel}
-                        className="text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors w-full md:w-auto py-2"
+                        disabled={submitting}
+                        className="text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors w-full md:w-auto py-2 disabled:opacity-50"
                     >
                         Cancel Upload
                     </button>
@@ -691,16 +789,18 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                         {step > 1 && (
                             <button
                                 onClick={handleBack}
-                                className="px-6 py-3 md:py-2.5 rounded-xl font-bold text-sm bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors w-full md:w-auto"
+                                disabled={submitting}
+                                className="px-6 py-3 md:py-2.5 rounded-xl font-bold text-sm bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors w-full md:w-auto disabled:opacity-50"
                             >
                                 Back
                             </button>
                         )}
                         <button
-                            onClick={step === 3 ? onComplete : handleNext}
-                            className="px-8 py-3 md:py-2.5 rounded-xl font-bold text-sm bg-primary text-white hover:bg-blue-600 shadow-xl shadow-primary/25 transition-all flex items-center justify-center gap-2 w-full md:w-auto"
+                            onClick={step === 3 ? handleSubmitRelease : handleNext}
+                            disabled={submitting}
+                            className="px-8 py-3 md:py-2.5 rounded-xl font-bold text-sm bg-primary text-white hover:bg-blue-600 shadow-xl shadow-primary/25 transition-all flex items-center justify-center gap-2 w-full md:w-auto disabled:opacity-70"
                         >
-                            {step === 3 ? 'Submit Release' : 'Next Step'}
+                            {step === 3 ? (submitting ? 'Submitting...' : 'Submit Release') : 'Next Step'}
                             {step !== 3 && <span className="material-symbols-outlined text-sm">arrow_forward</span>}
                         </button>
                     </div>

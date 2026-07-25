@@ -929,48 +929,6 @@ router.patch('/tickets/:id/status', asyncHandler(async (req, res) => {
 }));
 
 // ===========================================
-// PLATFORM SETTINGS
-// ===========================================
-router.get('/settings', asyncHandler(async (req, res) => {
-  const settings = await prisma.platformSetting.findMany();
-
-  const settingsMap = {};
-  for (const setting of settings) {
-    settingsMap[setting.key] = setting.value;
-  }
-
-  res.json({ settings: settingsMap });
-}));
-
-router.post('/settings/:key', asyncHandler(async (req, res) => {
-  const { value } = req.body;
-
-  const setting = await prisma.platformSetting.upsert({
-    where: { key: req.params.key },
-    update: { value },
-    create: { key: req.params.key, value },
-  });
-
-  // Audit log
-  await prisma.auditLog.create({
-    data: {
-      userId: req.user.id,
-      action: 'SETTING_CHANGED',
-      entityType: 'PlatformSetting',
-      entityId: setting.key,
-      newValues: value,
-      ipAddress: req.ip,
-    },
-  });
-
-  res.json({
-    success: true,
-    message: 'Setting updated',
-    setting,
-  });
-}));
-
-// ===========================================
 // AUDIT LOGS
 // ===========================================
 router.get('/audit-logs', asyncHandler(async (req, res) => {

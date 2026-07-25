@@ -276,6 +276,8 @@ export const ArtistService = {
 
   createProfile: (data: any) => api.post<any>('/artist/profiles', data),
 
+  updateProfile: (id: string, data: any) => api.patch<any>(`/artist/profiles/${id}`, data),
+
   // Analytics
   getAnalytics: (period?: string) =>
     api.get<any>(`/artist/analytics/overview${period ? `?period=${period}` : ''}`),
@@ -289,8 +291,8 @@ export const ArtistService = {
   // Support
   getTickets: () => api.get<any>('/artist/tickets'),
 
-  createTicket: (subject: string, category: string, message: string) =>
-    api.post<any>('/artist/tickets', { subject, category, message }),
+  createTicket: (subject: string, category: string, message: string, priority?: string) =>
+    api.post<any>('/artist/tickets', { subject, category, message, priority }),
 
   replyToTicket: (ticketId: string, message: string) =>
     api.post<any>(`/artist/tickets/${ticketId}/reply`, { message }),
@@ -314,6 +316,9 @@ export const AdminService = {
 
   updateUserRole: (id: string, role: string) =>
     api.patch<any>(`/admin/users/${id}/role`, { role }),
+
+  updateUserPlan: (id: string, plan: string) =>
+    api.patch<any>(`/admin/users/${id}/plan`, { plan }),
 
   // Releases
   getReleases: (params?: { status?: string; search?: string; page?: number }) => {
@@ -372,14 +377,17 @@ export const AdminService = {
   // Settings
   getSettings: () => api.get<any>('/admin/settings'),
 
-  updateSetting: (key: string, value: any) =>
-    api.post<any>(`/admin/settings/${key}`, { value }),
+  updateSetting: (key: string, value: any, description?: string) =>
+    api.put<any>(`/admin/settings/${key}`, { value, description }),
 
   // Audit Logs
-  getAuditLogs: (params?: { userId?: string; action?: string; page?: number }) => {
+  getAuditLogs: (params?: { userId?: string; action?: string; page?: number; limit?: number }) => {
     const query = new URLSearchParams(params as any).toString();
     return api.get<any>(`/admin/audit-logs${query ? `?${query}` : ''}`);
   },
+
+  // Finance
+  getFinanceOverview: () => api.get<any>('/admin/finance/overview'),
 };
 
 // Upload Service

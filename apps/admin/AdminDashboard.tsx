@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { Logo } from '../../components/Icons';
 import AdminOverview from './pages/AdminOverview';
 import PlansAndCommissions from './pages/PlansAndCommissions';
@@ -13,6 +15,13 @@ import AuditLog from './pages/AuditLog';
 
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'plans' | 'announcements' | 'tickets' | 'brand' | 'releases' | 'users' | 'settings' | 'finance' | 'audit'>('overview');
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -120,12 +129,18 @@ const AdminDashboard: React.FC = () => {
 
         <div className="p-4 border-t border-slate-200 dark:border-dark-800">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-xs">AD</div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-bold truncate">Super Admin</p>
-              <p className="text-xs text-slate-400 truncate">admin@eajmusic.com</p>
+            <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-xs">
+              {(user?.name || 'Admin').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
             </div>
-            <button className="text-slate-400 hover:text-white">
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-bold truncate">{user?.name || 'Admin'}</p>
+              <p className="text-xs text-slate-400 truncate">{user?.email || ''}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Log out"
+              className="text-slate-400 hover:text-white"
+            >
               <span className="material-symbols-outlined text-[20px]">logout</span>
             </button>
           </div>

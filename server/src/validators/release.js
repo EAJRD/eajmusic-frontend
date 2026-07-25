@@ -1,17 +1,5 @@
 import { z } from 'zod';
 
-const trackSchema = z.object({
-  title: z.string().min(1, 'Track title is required').max(500),
-  version: z.string().max(100).optional().nullable(),
-  trackNumber: z.number().int().positive(),
-  discNumber: z.number().int().positive().default(1),
-  isrc: z.string().length(12, 'ISRC must be 12 characters').optional().nullable(),
-  isExplicit: z.boolean().default(false),
-  lyrics: z.string().optional().nullable(),
-  lyricsLanguage: z.string().length(2).optional().nullable(),
-  audioKey: z.string().optional().nullable(), // S3 key or local path
-});
-
 const contributorSchema = z.object({
   name: z.string().min(1, 'Contributor name is required').max(255),
   role: z.enum([
@@ -26,6 +14,19 @@ const contributorSchema = z.object({
   ]),
   royaltyPercentage: z.number().min(0).max(100).default(0),
   ipiNumber: z.string().max(20).optional().nullable(),
+});
+
+const trackSchema = z.object({
+  title: z.string().min(1, 'Track title is required').max(500),
+  version: z.string().max(100).optional().nullable(),
+  trackNumber: z.number().int().positive(),
+  discNumber: z.number().int().positive().default(1),
+  isrc: z.string().length(12, 'ISRC must be 12 characters').optional().nullable(),
+  isExplicit: z.boolean().default(false),
+  lyrics: z.string().optional().nullable(),
+  lyricsLanguage: z.string().length(2).optional().nullable(),
+  audioKey: z.string().optional().nullable(), // S3 key or local path
+  contributors: z.array(contributorSchema).optional().default([]),
 });
 
 export const createReleaseSchema = z.object({

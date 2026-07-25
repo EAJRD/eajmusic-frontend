@@ -1,48 +1,77 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../../services/apiClient';
+import { useAuth } from '../../../src/contexts/AuthContext';
+import { AuthService } from '../../../src/services/api';
+
+const PREFS_KEY = 'eajmusic_notification_prefs';
 
 const Settings: React.FC = () => {
-    const [loading, setLoading] = useState(true);
+    const { user, logout } = useAuth();
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState('');
 
     const [settings, setSettings] = useState({
-        twoFactorAuth: false,
         emailOnReleaseLive: true,
         emailOnStatement: true,
-        dashboardAlerts: true
+        dashboardAlerts: true,
     });
 
+    const [showPasswordForm, setShowPasswordForm] = useState(false);
+    const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    const [passwordError, setPasswordError] = useState('');
+    const [changingPassword, setChangingPassword] = useState(false);
+
     useEffect(() => {
-        const fetchSettings = async () => {
-            try {
-                const data = await api.get('/api/auth/settings').catch(() => null);
-                if (data) {
-                    setSettings(prev => ({ ...prev, ...data }));
-                }
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchSettings();
+        try {
+            const stored = localStorage.getItem(PREFS_KEY);
+            if (stored) setSettings((prev) => ({ ...prev, ...JSON.parse(stored) }));
+        } catch {
+            // Ignore malformed local prefs.
+        }
     }, []);
 
-    const handleSave = async () => {
+    const showToast = (message: string) => {
+        setToast(message);
+        setTimeout(() => setToast(''), 3000);
+    };
+
+    const handleSave = () => {
         setSaving(true);
+        localStorage.setItem(PREFS_KEY, JSON.stringify(settings));
+        setSaving(false);
+        showToast('Notification preferences saved');
+    };
+
+    const handleChangePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setPasswordError('');
+
+        if (passwordForm.newPassword.length < 8) {
+            setPasswordError('New password must be at least 8 characters.');
+            return;
+        }
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+            setPasswordError('New passwords do not match.');
+            return;
+        }
+
+        setChangingPassword(true);
         try {
-            await api.patch('/api/auth/settings', settings);
-            setToast('Settings saved successfully');
-        } catch (err) {
-            setToast('Failed to save settings');
+            await AuthService.changePassword(passwordForm.currentPassword, passwordForm.newPassword, passwordForm.confirmPassword);
+            setShowPasswordForm(false);
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            showToast('Password updated successfully');
+        } catch (err: any) {
+            setPasswordError(err.message || 'Failed to update password.');
         } finally {
-            setSaving(false);
-            setTimeout(() => setToast(''), 3000);
+            setChangingPassword(false);
         }
     };
 
-    if (loading) return <div className="p-8 text-center">Loading settings...</div>;
+    const handleDeleteAccount = () => {
+        if (window.confirm('Account deletion requires a support request so we can verify your identity and settle any pending payouts first. Open a support ticket now?')) {
+            showToast('Please use the Support tab to request account deletion.');
+        }
+    };
 
     return (
         <div className="flex-1 px-4 md:px-10 lg:px-20 py-8 max-w-[1600px] w-full mx-auto font-display text-slate-900 dark:text-white">
@@ -59,15 +88,15 @@ const Settings: React.FC = () => {
 
             <div className="max-w-2xl mx-auto space-y-6">
                 <div className="flex justify-end mb-4">
-                    <button 
+                    <button
                         onClick={handleSave}
                         disabled={saving}
                         className="px-6 py-2 bg-primary text-white font-bold rounded-lg shadow-md hover:bg-blue-600 transition-colors disabled:opacity-50"
                     >
-                        {saving ? 'Saving...' : 'Save Settings'}
+                        {saving ? 'Saving...' : 'Save Notification Preferences'}
                     </button>
                 </div>
-                
+
                 {/* Security Section */}
                 <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm space-y-6">
                     <h3 className="text-lg font-bold flex items-center gap-2">
@@ -77,30 +106,70 @@ const Settings: React.FC = () => {
                     <div className="flex justify-between items-center py-4 border-b border-slate-100 dark:border-slate-800">
                         <div>
                             <p className="font-bold text-sm">Email Address</p>
-                            <p className="text-xs text-slate-500">artist@eajmusic.com</p>
+                            <p className="text-xs text-slate-500">{user?.email}</p>
                         </div>
-                        <button className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">Change</button>
-                    </div>
-
-                    <div className="flex justify-between items-center py-4 border-b border-slate-100 dark:border-slate-800">
-                        <div>
-                            <p className="font-bold text-sm">Password</p>
-                            <p className="text-xs text-slate-500">Last changed 3 months ago</p>
-                        </div>
-                        <button className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">Update</button>
-                    </div>
-
-                    <div className="flex justify-between items-center py-2">
-                        <div>
-                            <p className="font-bold text-sm">Two-Factor Authentication</p>
-                            <p className="text-xs text-slate-500">Add an extra layer of security</p>
-                        </div>
-                        <div 
-                            onClick={() => setSettings(s => ({ ...s, twoFactorAuth: !s.twoFactorAuth }))}
-                            className={`w-11 h-6 rounded-full relative cursor-pointer transition-colors ${settings.twoFactorAuth ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-700'}`}
+                        <button
+                            onClick={() => showToast('Email changes require a support request to verify your identity.')}
+                            className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
                         >
-                            <div className={`size-5 absolute top-0.5 bg-white rounded-full shadow-sm transition-transform ${settings.twoFactorAuth ? 'translate-x-5' : 'left-0.5'}`}></div>
+                            Change
+                        </button>
+                    </div>
+
+                    <div className="py-4 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <p className="font-bold text-sm">Password</p>
+                                <p className="text-xs text-slate-500">Keep your account secure with a strong password.</p>
+                            </div>
+                            <button
+                                onClick={() => setShowPasswordForm((v) => !v)}
+                                className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                            >
+                                {showPasswordForm ? 'Cancel' : 'Update'}
+                            </button>
                         </div>
+
+                        {showPasswordForm && (
+                            <form onSubmit={handleChangePassword} className="mt-4 space-y-3">
+                                {passwordError && (
+                                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-3 py-2 rounded-lg text-xs">
+                                        {passwordError}
+                                    </div>
+                                )}
+                                <input
+                                    type="password"
+                                    placeholder="Current password"
+                                    value={passwordForm.currentPassword}
+                                    onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                                    required
+                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"
+                                />
+                                <input
+                                    type="password"
+                                    placeholder="New password"
+                                    value={passwordForm.newPassword}
+                                    onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
+                                    required
+                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"
+                                />
+                                <input
+                                    type="password"
+                                    placeholder="Confirm new password"
+                                    value={passwordForm.confirmPassword}
+                                    onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                                    required
+                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={changingPassword}
+                                    className="px-4 py-2 bg-primary text-white font-bold text-sm rounded-lg disabled:opacity-50"
+                                >
+                                    {changingPassword ? 'Updating...' : 'Confirm Password Change'}
+                                </button>
+                            </form>
+                        )}
                     </div>
                 </div>
 
@@ -111,38 +180,38 @@ const Settings: React.FC = () => {
                     </h3>
 
                     <label className="flex items-center gap-4 cursor-pointer">
-                        <input 
-                            type="checkbox" 
+                        <input
+                            type="checkbox"
                             checked={settings.emailOnReleaseLive}
                             onChange={e => setSettings(s => ({ ...s, emailOnReleaseLive: e.target.checked }))}
-                            className="size-5 rounded text-primary focus:ring-primary border-slate-300" 
+                            className="size-5 rounded text-primary focus:ring-primary border-slate-300"
                         />
                         <span className="font-medium text-sm text-slate-700 dark:text-slate-300">Email me when a release is live</span>
                     </label>
 
                     <label className="flex items-center gap-4 cursor-pointer">
-                        <input 
-                            type="checkbox" 
+                        <input
+                            type="checkbox"
                             checked={settings.emailOnStatement}
                             onChange={e => setSettings(s => ({ ...s, emailOnStatement: e.target.checked }))}
-                            className="size-5 rounded text-primary focus:ring-primary border-slate-300" 
+                            className="size-5 rounded text-primary focus:ring-primary border-slate-300"
                         />
                         <span className="font-medium text-sm text-slate-700 dark:text-slate-300">Email me receiving a monthly statement</span>
                     </label>
 
                     <label className="flex items-center gap-4 cursor-pointer">
-                        <input 
-                            type="checkbox" 
+                        <input
+                            type="checkbox"
                             checked={settings.dashboardAlerts}
                             onChange={e => setSettings(s => ({ ...s, dashboardAlerts: e.target.checked }))}
-                            className="size-5 rounded text-primary focus:ring-primary border-slate-300" 
+                            className="size-5 rounded text-primary focus:ring-primary border-slate-300"
                         />
                         <span className="font-medium text-sm text-slate-700 dark:text-slate-300">Show dashboard alerts for new features</span>
                     </label>
                 </div>
 
                 <div className="pt-8 text-center">
-                    <button className="text-rose-500 font-bold text-sm hover:underline">Delete Account</button>
+                    <button onClick={handleDeleteAccount} className="text-rose-500 font-bold text-sm hover:underline">Delete Account</button>
                 </div>
             </div>
         </div>

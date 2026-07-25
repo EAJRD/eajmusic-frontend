@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { AdminService } from '../../../src/services/api';
+
+const SETTINGS_KEY = 'plans_config';
 
 const INITIAL_STATE = {
   freeCommission: 15,
@@ -28,6 +31,26 @@ const INITIAL_STATE = {
 const PlansAndCommissions: React.FC = () => {
   const [state, setState] = useState(INITIAL_STATE);
   const [initialState, setInitialState] = useState(INITIAL_STATE);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await AdminService.getSettings();
+        const saved = res?.settings?.[SETTINGS_KEY];
+        if (saved) {
+          setState(saved);
+          setInitialState(saved);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to load saved settings — showing defaults.');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   const isDirty = JSON.stringify(state) !== JSON.stringify(initialState);
   
@@ -52,18 +75,15 @@ const PlansAndCommissions: React.FC = () => {
   const sectionsChanged = dirtySectionsCount();
 
   const handleSave = async () => {
+    setSaving(true);
+    setError('');
     try {
-      // Mock API call
-      // await fetch('/api/admin/settings/plans_config', {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-      //   body: JSON.stringify(state)
-      // });
-      
+      await AdminService.updateSetting(SETTINGS_KEY, state, 'Subscription plan pricing, commissions, and feature entitlements');
       setInitialState(state);
-      alert('Settings saved successfully!');
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save settings.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -98,6 +118,12 @@ const PlansAndCommissions: React.FC = () => {
       <header className="mb-8">
         <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Plans & Commissions</h2>
         <p className="text-slate-500 font-bold mt-2">Configure subscription tiers and platform-wide business rules.</p>
+        {loading && <p className="text-sm text-slate-400 mt-2">Loading saved configuration...</p>}
+        {error && (
+          <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
       </header>
 
       {/* Section 1: Active Plans */}
@@ -321,18 +347,20 @@ const PlansAndCommissions: React.FC = () => {
         <div className="fixed bottom-0 left-64 right-0 bg-white/90 dark:bg-dark-950/90 backdrop-blur-md border-t border-slate-200 dark:border-dark-800 px-8 py-4 flex justify-end items-center gap-4 z-50 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)]">
           <p className="text-sm text-slate-600 dark:text-slate-300 font-bold">Unsaved changes in {sectionsChanged} section{sectionsChanged > 1 ? 's' : ''}</p>
           <div className="h-6 w-px bg-slate-300 dark:bg-dark-700 mx-2"></div>
-          <button 
+          <button
             onClick={handleDiscard}
-            className="px-6 py-2.5 bg-slate-100 dark:bg-dark-800 text-sm font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-dark-700 transition-colors text-slate-700 dark:text-slate-300"
+            disabled={saving}
+            className="px-6 py-2.5 bg-slate-100 dark:bg-dark-800 text-sm font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-dark-700 transition-colors text-slate-700 dark:text-slate-300 disabled:opacity-50"
           >
             Discard Changes
           </button>
-          <button 
+          <button
             onClick={handleSave}
-            className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold rounded-lg shadow-lg shadow-brand-500/30 hover:shadow-brand-500/40 transition-all flex items-center gap-2"
+            disabled={saving}
+            className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-sm font-bold rounded-lg shadow-lg shadow-brand-500/30 hover:shadow-brand-500/40 transition-all flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-[18px]">save</span>
-            Save Settings
+            {saving ? 'Saving...' : 'Save Settings'}
           </button>
         </div>
       )}
