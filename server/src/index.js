@@ -24,6 +24,12 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5001;
 
+// Behind Cloudflare Tunnel / Nginx in every deployment target - without this,
+// req.protocol always reports "http" (breaking API_URL-less URL building) and
+// req.ip / express-rate-limit see the proxy's IP for every request instead of
+// the real client, effectively pooling all users into one rate-limit bucket.
+app.set('trust proxy', 1);
+
 // ===========================================
 // MIDDLEWARE
 // ===========================================
