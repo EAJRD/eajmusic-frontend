@@ -132,12 +132,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-12 border-y border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/5 transition-colors">
         <div className="max-w-7xl mx-auto px-6">
           <p className="text-center text-xs font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400 mb-10 transition-colors">Trusted by Major Platforms</p>
-          <div className="flex flex-wrap justify-center items-center gap-12 md:gap-20 opacity-50 grayscale hover:grayscale-0 transition-all">
-            <div className="h-8 w-24 bg-center bg-no-repeat bg-contain" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDuTH_rYYjRPqZtoXyrwT9C9GH9v4JgtkXg6XqN4MP1bRiTHiPNc42kswf4izmA-vzoqabgFRbAMxKMYomqNtL3CJefiUUXuERnYIw3o1rML92CkL5Q_tTSZvAag74vs8YKXjY5gXxqYnwUnad4oceYbLqYRUY7f4FD5RuqJAM8JwNk4QhiguQyMT9ZeP3o3hWLu0RoWJ8b44famTed1F9g7fShrgiVJT9Py3x1G-x4Iz4zsah2WfPPylCRSnede_IndK2qOfoAFNQ')" }}></div>
-            <div className="h-8 w-24 bg-center bg-no-repeat bg-contain" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCk0GsAvat3V97t7sYrTzEm3pwVSqX4Xoo_2-zLOQH8aK5pfqIfloQwaoMknQv7pEMD7gXFm53mCkIqnJBM8ixSmSvFYaJ_5U3pA8fjbbskndefZSGSmsMFeyoFPIWUX0eF4DdbqDpzsxgoze_JP0N4d-InwqlS-TMk4hxRRUWHLHwtpD3KI8n-5EvklQ3lWtzH1dpQAlyFxvXDtzdiuQh-nyRBj8pS0X2m1twjVUgA3GD8eAi7G363m8TSXlpkRt_CAwxFBLju5RE')" }}></div>
-            <div className="h-8 w-24 bg-center bg-no-repeat bg-contain" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDLeKuH_4ZiRoPYFeekQIV4k8eoXCk3a9UeOpWnmGOZTVWWHM_AnH0QtqAB0WD_D2Cmccp7XmhnA_bazatcbQkSflMc3Y65ZLkKxPzAM16GFMwEUtuFAanFKTHkv7WPHIXYW2p39bzRxsE-4NEQMIrAhUrJYpY8JZqJ--WSHShHzycfFT-2zKYvNVQ2BQKKbeHcvRYg1d5noEKzgkT5L5TiZcwSrQx4Q3MqxL8MjsES7uHcQGf-I10rDkFj9ArU9nfQydx1K078nMM')" }}></div>
-            <div className="h-8 w-24 bg-center bg-no-repeat bg-contain" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCE50eccdqObYiJEGkRSZyvesEaAUOZNB4SDBBQ_dhaFClSri4ojaxohII3_5LE-nAyils6EHtzIb0lp-u0l8-F7MmJplDM6pihjSBOQd1qWrAF9AB5-dYemIf7c5g8VQuRtVkc2T9OMdvBbfOQgIyFoDaYqjQs0Dm9h3y6XjYNDFCqngaZNFdjPHTCC7C9f1LxZXGASTmSQbmmTkQNwVDOXtOTjEZgFO6hCpn59WoI6WuSsxfOWONuafaR5Sl7nRW7y-eQz7hDSC4')" }}></div>
-            <div className="h-8 w-24 bg-center bg-no-repeat bg-contain" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuB_YiO5mdUfOiKUYT4FFg7i7Y78mCveDHYaaMcr05BVU3oHKGrKMuQIGPkAC5EDVb384wsuUWz8Vk-kNke9J_Z64dFSVOApfvhTxqIAqKDiXpWU7f4BaHO6JsC4J8PSNgFamKJVQJ0iAb9dqJHgmImxJYELYaQw_UtJcV8hIYP1Mu1BvISLTC3Xd_qL7xOu9lfQPs3WMfEOdwCdEz1DoytzbBe9LYX57eMRkBWSVpYoerT4b_EC_0EkYB2vkwAs7eMEo1L1vu4-4YY')" }}></div>
+          <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-6 md:gap-x-20 text-slate-500 dark:text-slate-400">
+            {['Spotify', 'Apple Music', 'Amazon Music', 'YouTube Music', 'TikTok'].map((platform) => (
+              <span key={platform} className="text-lg md:text-xl font-black tracking-tight opacity-60 hover:opacity-100 transition-opacity">
+                {platform}
+              </span>
+            ))}
           </div>
         </div>
       </section>
@@ -273,7 +273,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               </div>
               <p className="text-lg italic leading-relaxed">"EAJMUSIC changed everything for me. I finally keep all my earnings and the analytics are incredibly helpful for planning my tours."</p>
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-slate-700 bg-center bg-cover" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAyMgo_veMHaev5kDpK8tFObJHMf0C5A-rOFQ0w1Cd7etz6oxRCZ1VIio2tyb7_bh7MnUkhxA8k7sa7z3PBs9WPQpaO0a1SSSq-ge1V8a1pe6Oplfa5ZEJ9VgQUVFXRqifbJagjlVEGqWBP1UNWH6vjGlhtLNOEZtmgQwxSVI2gXEYIx9Nu2_0URPTtNWJbQyQehHq8A0xZFTxsCFhIRozY9yVqhqjfS7VqGrLHw5oCM8U9EYWuAdwOYFvna0ZiSBcgG9NUtgNbpq8')" }}></div>
+                <div className="w-12 h-12 rounded-full bg-slate-700 bg-center bg-cover" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=Marcus+Chen&background=2563eb&color=fff')" }}></div>
                 <div>
                   <p className="font-bold">Marcus Chen</p>
                   <p className="text-xs text-slate-500">Electronic Artist</p>
@@ -290,7 +290,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               </div>
               <p className="text-lg italic leading-relaxed">"The distribution speed is insane. My tracks are on Spotify in less than 48 hours usually. Best service in the game right now."</p>
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-slate-700 bg-center bg-cover" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCfzYr1Bk73xJTjizn9bHCVrMzLPUYD2DwPAZ37k127oklvyLQ5ovSRqZmSsg8sw77ONNAfGzbekMrntvnxnvsCpys_LReiqmBxFZT_cGIb4jo42HuuBslNu52Q7EQL9IMvuryTJwGgF4RsJmP_c4clK2ycRJiDQR8kEm9yg-wTfFXTLB1c1Yk9dTbNZMC3ihOErA1MtnPVQZbs54BItiEW8t8q0C8EAZvztPLTfufH-xe0mIMV-FRIN9AAGjakacJX1QV9xD-U6k0')" }}></div>
+                <div className="w-12 h-12 rounded-full bg-slate-700 bg-center bg-cover" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=Sarah+Jenkins&background=7c3aed&color=fff')" }}></div>
                 <div>
                   <p className="font-bold">Sarah Jenkins</p>
                   <p className="text-xs text-slate-500">Singer-Songwriter</p>
@@ -307,7 +307,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               </div>
               <p className="text-lg italic leading-relaxed">"Managing 5 different artists was a nightmare before EAJMUSIC. The Label Plus plan has saved me hours of manual work every week."</p>
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-slate-700 bg-center bg-cover" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAD-xsuWHiggpCHCh4rrj3Gsq8RkWqduCg98WvadipAIFuhmbOCClC9oMPfnMDPqojhkvWwxSx6n6yQDXgcmJn-v2djTyy_EX4jyv3PPiGI9BKEVj2RXcVGJ_P14de6gtWTuljXsvJiwUCNOyTymtBssrzU6wQY69512eZh4OaM29OLKR1OtJ43jivEmlmMvsCRx6gcgvVmka4eG_RzkWqNYtCHEvX82PfvbWW5hVP09vzlD5qQ3ANH2CSJrDH9yf9GGLHCao4v520')" }}></div>
+                <div className="w-12 h-12 rounded-full bg-slate-700 bg-center bg-cover" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=David+Rossi&background=059669&color=fff')" }}></div>
                 <div>
                   <p className="font-bold">David Rossi</p>
                   <p className="text-xs text-slate-500">Founder, Red Cloud Records</p>
@@ -348,24 +348,24 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               The premium music distribution platform for the modern independent artist. Distributed globally. Managed locally.
             </p>
             <div className="flex gap-4">
-              <a href="#" className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center hover:bg-primary transition-colors">
+              <span title="Social links coming soon" className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 cursor-default">
                 <span className="material-symbols-outlined text-sm">public</span>
-              </a>
-              <a href="#" className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center hover:bg-primary transition-colors">
+              </span>
+              <span title="Social links coming soon" className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 cursor-default">
                 <span className="material-symbols-outlined text-sm">video_library</span>
-              </a>
-              <a href="#" className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center hover:bg-primary transition-colors">
+              </span>
+              <span title="Social links coming soon" className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 cursor-default">
                 <span className="material-symbols-outlined text-sm">share</span>
-              </a>
+              </span>
             </div>
           </div>
           <div>
             <h4 className="font-bold mb-6">Product</h4>
             <ul className="flex flex-col gap-4 text-sm text-slate-500 dark:text-slate-400">
-              <li><a href="#" className="hover:text-primary transition-colors">Distribution</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">Royalties</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">Promotional Tools</a></li>
-              <li><a href="#" className="hover:text-primary transition-colors">Pricing</a></li>
+              <li><a href="#features" className="hover:text-primary transition-colors">Distribution</a></li>
+              <li><a href="#features" className="hover:text-primary transition-colors">Royalties</a></li>
+              <li><a href="#features" className="hover:text-primary transition-colors">Promotional Tools</a></li>
+              <li><a href="#pricing" className="hover:text-primary transition-colors">Pricing</a></li>
             </ul>
           </div>
           <div>

@@ -230,7 +230,7 @@ const TrackAnalytics: React.FC = () => {
                                 <Tooltip
                                     cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                     contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
-                                    formatter={(value: number) => [`${value}%`, 'Streams']}
+                                    formatter={(value: number | undefined) => [`${value ?? 0}%`, 'Streams']}
                                 />
                                 <Bar dataKey="percent" fill="#8b5cf6" radius={[0, 4, 4, 0]}>
                                     {countryData.map((entry, index) => (
