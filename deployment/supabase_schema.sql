@@ -88,18 +88,27 @@ ALTER TABLE announcements_lite ENABLE ROW LEVEL SECURITY;
 
 -- Public read access policies (anon key can read)
 -- These are read-only tables synced from Proxmox
-
-CREATE POLICY "Allow public read users_lite" ON users_lite
-  FOR SELECT USING (true);
+--
+-- IMPORTANT: this app does not authenticate individual users to Supabase -
+-- every browser uses the same shared anon key (VITE_SUPABASE_ANON_KEY).
+-- RLS policies here CANNOT be scoped "per user" (there is no auth.uid());
+-- anything readable by the anon key is readable by anyone who has that key,
+-- which is effectively public. Only put data here you're fine with being
+-- fully public. users_lite/wallet_lite are intentionally NOT anon-readable
+-- below because they contain email addresses and financial balances.
 
 CREATE POLICY "Allow public read releases_lite" ON releases_lite
   FOR SELECT USING (status = 'LIVE' OR status = 'PENDING');
 
-CREATE POLICY "Allow authenticated read own wallet" ON wallet_lite
-  FOR SELECT USING (true); -- Will be restricted by API layer
-
 CREATE POLICY "Allow public read active announcements" ON announcements_lite
   FOR SELECT USING (is_active = TRUE AND (expires_at IS NULL OR expires_at > NOW()));
+
+-- users_lite and wallet_lite intentionally have NO anon SELECT policy.
+-- With RLS enabled and no matching policy, all anon/authenticated reads are
+-- denied by default - only the service_role (used by the n8n sync job, see
+-- below) can read or write them. If a real public artist-directory feature
+-- is built later, expose it via a dedicated view with only non-sensitive
+-- columns (no email, no balances) rather than opening these tables directly.
 
 -- ===========================================
 -- SERVICE ROLE POLICIES (for n8n sync)
