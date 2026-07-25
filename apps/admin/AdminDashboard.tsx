@@ -13,8 +13,10 @@ import AdminSettings from './pages/AdminSettings';
 import FinanceHub from './pages/FinanceHub';
 import AuditLog from './pages/AuditLog';
 
+export type AdminTab = 'overview' | 'plans' | 'announcements' | 'tickets' | 'brand' | 'releases' | 'users' | 'settings' | 'finance' | 'audit';
+
 const AdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'plans' | 'announcements' | 'tickets' | 'brand' | 'releases' | 'users' | 'settings' | 'finance' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
