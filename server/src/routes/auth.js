@@ -511,8 +511,11 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
 
   const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
 
-  // Log reset URL (in production, send via email)
-  console.log(`\n[PASSWORD RESET] Token for ${email}: ${resetUrl}\n`);
+  // Dev-only fallback so the flow is testable without SMTP configured.
+  // Never log a live reset token in production - it's a bearer credential.
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`\n[PASSWORD RESET] Token for ${email}: ${resetUrl}\n`);
+  }
 
   // TODO: Send email via SMTP when configured
   // Use nodemailer with SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS env vars
