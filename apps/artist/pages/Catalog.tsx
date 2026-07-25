@@ -65,6 +65,7 @@ const Catalog: React.FC = () => {
                       src={release.coverArtUrl || 'https://placehold.co/80x80/1a1a2e/7c3aed?text=%E2%99%AA'}
                       className="size-10 rounded shadow-sm object-cover"
                       alt="Cover"
+                      loading="lazy"
                     />
                     <span className="font-bold text-sm text-slate-900 dark:text-white">{release.title}</span>
                   </div>

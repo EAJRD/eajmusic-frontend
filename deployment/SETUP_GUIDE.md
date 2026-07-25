@@ -18,17 +18,20 @@ The `.env` file should already exist. Verify these values:
 
 ```bash
 VITE_API_URL=https://api.eajmusic.com/api
-VITE_SUPABASE_URL=https://gniqkwyedexeeruznwgn.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
 VITE_DB_TIMEOUT_MS=3000
 VITE_HEALTH_CHECK_INTERVAL_MS=30000
 ```
+
+Get the real values from your Supabase project's Settings → API page - never commit
+them. `.env` is gitignored; only `.env.example` (with placeholders) is tracked.
 
 ### 2. Supabase Setup
 
 Run the schema in your Supabase SQL Editor:
 
-1. Go to https://supabase.com/dashboard/project/gniqkwyedexeeruznwgn/sql
+1. Go to https://supabase.com/dashboard/project/_/sql (select your project)
 2. Open `deployment/supabase_schema.sql`
 3. Copy and paste the entire file
 4. Click "Run"

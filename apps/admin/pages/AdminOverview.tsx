@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { AdminService } from '../../../src/services/api';
+import type { AdminTab } from '../AdminDashboard';
 
 interface AdminOverviewProps {
-  onNavigate?: (tab: string) => void;
+  onNavigate?: (tab: AdminTab) => void;
 }
 
 const getActionConfig = (action: string) => {

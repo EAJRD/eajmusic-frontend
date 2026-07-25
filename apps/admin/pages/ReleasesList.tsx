@@ -183,6 +183,7 @@ const ReleasesList: React.FC = () => {
                         src={release.coverArtUrl || 'https://placehold.co/80x80/1a1a2e/7c3aed?text=%E2%99%AA'}
                         alt="Cover"
                         className="w-10 h-10 rounded-lg object-cover"
+                        loading="lazy"
                       />
                       <div>
                         <p className="font-bold text-slate-900 dark:text-white text-sm">{release.title}</p>

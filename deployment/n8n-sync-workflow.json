@@ -226,6 +226,75 @@
             }
         },
         {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "leftValue": "={{ $json.table }}",
+                            "rightValue": "announcements",
+                            "operator": {
+                                "type": "string",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                }
+            },
+            "id": "router-announcements",
+            "name": "Is Announcements Table?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                480,
+                800
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://gniqkwyedexeeruznwgn.supabase.co/rest/v1/announcements_lite",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ $credentials.supabaseServiceKey }}"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "resolution=merge-duplicates"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"id\": \"{{ $json.new.id }}\",\n  \"title\": \"{{ $json.new.title }}\",\n  \"content\": \"{{ $json.new.content }}\",\n  \"type\": \"{{ $json.new.type }}\",\n  \"is_active\": {{ $json.new.is_active || false }},\n  \"starts_at\": {{ $json.new.starts_at ? '\"' + $json.new.starts_at + '\"' : 'null' }},\n  \"expires_at\": {{ $json.new.expires_at ? '\"' + $json.new.expires_at + '\"' : 'null' }}\n}",
+                "options": {}
+            },
+            "id": "upsert-announcements",
+            "name": "Upsert to announcements_lite",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                700,
+                800
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "YOUR_CREDENTIAL_ID",
+                    "name": "Supabase Service Key"
+                }
+            }
+        },
+        {
             "parameters": {},
             "id": "no-op",
             "name": "No Operation",
@@ -233,7 +302,7 @@
             "typeVersion": 1,
             "position": [
                 700,
-                800
+                1000
             ]
         }
     ],
@@ -253,6 +322,11 @@
                     },
                     {
                         "node": "Is Wallets Table?",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Is Announcements Table?",
                         "type": "main",
                         "index": 0
                     }
@@ -300,6 +374,24 @@
                 [
                     {
                         "node": "Upsert to wallet_lite",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "No Operation",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Announcements Table?": {
+            "main": [
+                [
+                    {
+                        "node": "Upsert to announcements_lite",
                         "type": "main",
                         "index": 0
                     }

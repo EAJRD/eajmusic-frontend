@@ -79,10 +79,10 @@ async function request<T>(
 ): Promise<T> {
   const token = getToken();
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
+    ...(options.headers as Record<string, string> | undefined),
   };
 
   const config: RequestInit = {
@@ -247,6 +247,11 @@ export const AuthService = {
     api.post<any>('/auth/change-password', { currentPassword, newPassword, confirmPassword }),
 
   refresh: (refreshToken: string) => api.post<any>('/auth/refresh', { refreshToken }),
+
+  forgotPassword: (email: string) => api.post<any>('/auth/forgot-password', { email }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    api.post<any>('/auth/reset-password', { token, newPassword }),
 };
 
 // Artist Service

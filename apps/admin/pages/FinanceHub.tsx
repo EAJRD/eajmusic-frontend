@@ -167,7 +167,7 @@ const FinanceHub: React.FC = () => {
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
                   itemStyle={{ fontWeight: 'bold' }}
-                  formatter={(value: number) => [`$${value.toLocaleString()}`, undefined]}
+                  formatter={(value: number | undefined) => [`$${(value ?? 0).toLocaleString()}`, undefined]}
                 />
                 <Area type="monotone" dataKey="revenue" name="Gross Revenue" stroke="#7c3aed" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" />
                 <Area type="monotone" dataKey="commission" name="Commission" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorCom)" />

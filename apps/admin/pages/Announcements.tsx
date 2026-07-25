@@ -105,8 +105,8 @@ const Announcements: React.FC = () => {
         {/* LEFT COLUMN: Composition Form */}
         <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-8">
           {/* Compose Card */}
-          <div className="bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-border-dark overflow-hidden">
-            <div className="p-6 border-b border-slate-200 dark:border-border-dark flex justify-between items-center">
+          <div className="bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-dark-800 overflow-hidden">
+            <div className="p-6 border-b border-slate-200 dark:border-dark-800 flex justify-between items-center">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">edit_square</span>
                 Compose New Announcement
@@ -116,7 +116,7 @@ const Announcements: React.FC = () => {
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Announcement Title</label>
                 <input
-                  className="form-input w-full rounded-lg bg-slate-50 dark:bg-input-dark border-slate-300 dark:border-border-dark text-slate-900 dark:text-white px-4 py-3 focus:border-primary focus:ring-primary placeholder:text-slate-400"
+                  className="form-input w-full rounded-lg bg-slate-50 dark:bg-input-dark border-slate-300 dark:border-dark-800 text-slate-900 dark:text-white px-4 py-3 focus:border-primary focus:ring-primary placeholder:text-slate-400"
                   placeholder="e.g. Scheduled Maintenance Update"
                   type="text"
                   value={title}
@@ -127,7 +127,7 @@ const Announcements: React.FC = () => {
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notification Type</label>
                   <select
-                    className="form-select w-full rounded-lg bg-slate-50 dark:bg-input-dark border-slate-300 dark:border-border-dark text-slate-900 dark:text-white px-4 py-3 pr-10 focus:border-primary focus:ring-primary appearance-none"
+                    className="form-select w-full rounded-lg bg-slate-50 dark:bg-input-dark border-slate-300 dark:border-dark-800 text-slate-900 dark:text-white px-4 py-3 pr-10 focus:border-primary focus:ring-primary appearance-none"
                     value={type}
                     onChange={(e) => setType(e.target.value)}
                   >
@@ -140,7 +140,7 @@ const Announcements: React.FC = () => {
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Target Audience</label>
                   <select
-                    className="form-select w-full rounded-lg bg-slate-50 dark:bg-input-dark border-slate-300 dark:border-border-dark text-slate-900 dark:text-white px-4 py-3 pr-10 focus:border-primary focus:ring-primary appearance-none"
+                    className="form-select w-full rounded-lg bg-slate-50 dark:bg-input-dark border-slate-300 dark:border-dark-800 text-slate-900 dark:text-white px-4 py-3 pr-10 focus:border-primary focus:ring-primary appearance-none"
                     value={targetAudience}
                     onChange={(e) => setTargetAudience(e.target.value)}
                   >
@@ -154,7 +154,7 @@ const Announcements: React.FC = () => {
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Expires (Optional)</label>
                   <input
                     type="date"
-                    className="form-input w-full rounded-lg bg-slate-50 dark:bg-input-dark border-slate-300 dark:border-border-dark text-slate-900 dark:text-white px-4 py-3 focus:border-primary focus:ring-primary"
+                    className="form-input w-full rounded-lg bg-slate-50 dark:bg-input-dark border-slate-300 dark:border-dark-800 text-slate-900 dark:text-white px-4 py-3 focus:border-primary focus:ring-primary"
                     value={expiresAt}
                     onChange={(e) => setExpiresAt(e.target.value)}
                   />
@@ -163,13 +163,13 @@ const Announcements: React.FC = () => {
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Message Content</label>
                 <textarea
-                  className="w-full bg-slate-50 dark:bg-input-dark border border-slate-300 dark:border-border-dark rounded-lg text-slate-900 dark:text-white p-4 h-32 resize-none focus:ring-primary focus:border-primary placeholder:text-slate-400"
+                  className="w-full bg-slate-50 dark:bg-input-dark border border-slate-300 dark:border-dark-800 rounded-lg text-slate-900 dark:text-white p-4 h-32 resize-none focus:ring-primary focus:border-primary placeholder:text-slate-400"
                   placeholder="Type your message here..."
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                 ></textarea>
               </div>
-              <div className="pt-4 border-t border-slate-200 dark:border-border-dark flex justify-end">
+              <div className="pt-4 border-t border-slate-200 dark:border-dark-800 flex justify-end">
                 <button
                   onClick={handleBroadcast}
                   disabled={sending || !title.trim() || !content.trim()}
@@ -183,11 +183,11 @@ const Announcements: React.FC = () => {
           </div>
 
           {/* Recent Broadcasts Table */}
-          <div className="bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-border-dark overflow-hidden flex-1">
-            <div className="p-6 border-b border-slate-200 dark:border-border-dark flex justify-between items-center">
+          <div className="bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-dark-800 overflow-hidden flex-1">
+            <div className="p-6 border-b border-slate-200 dark:border-dark-800 flex justify-between items-center">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">Sent Announcements</h2>
               <input
-                className="bg-slate-50 dark:bg-input-dark border border-slate-200 dark:border-border-dark rounded-lg px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:ring-primary focus:border-primary w-48"
+                className="bg-slate-50 dark:bg-input-dark border border-slate-200 dark:border-dark-800 rounded-lg px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:ring-primary focus:border-primary w-48"
                 placeholder="Search history..."
                 type="text"
                 value={search}
@@ -205,7 +205,7 @@ const Announcements: React.FC = () => {
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-border-dark">
+                <tbody className="divide-y divide-slate-200 dark:divide-dark-800">
                   {loading && (
                     <tr><td colSpan={5} className="px-6 py-10 text-center text-slate-400">Loading...</td></tr>
                   )}
@@ -243,8 +243,8 @@ const Announcements: React.FC = () => {
         {/* RIGHT COLUMN: Preview & Info */}
         <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-8">
           {/* Live Preview Device */}
-          <div className="bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-border-dark overflow-hidden flex flex-col h-full max-h-[700px] sticky top-28">
-            <div className="p-4 border-b border-slate-200 dark:border-border-dark flex justify-between items-center bg-slate-50 dark:bg-[#1a2436]">
+          <div className="bg-white dark:bg-card-dark rounded-xl shadow-sm border border-slate-200 dark:border-dark-800 overflow-hidden flex flex-col h-full max-h-[700px] sticky top-28">
+            <div className="p-4 border-b border-slate-200 dark:border-dark-800 flex justify-between items-center bg-slate-50 dark:bg-[#1a2436]">
               <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
                 <span className="material-symbols-outlined text-[18px]">visibility</span>
                 Live Preview
@@ -287,11 +287,11 @@ const Announcements: React.FC = () => {
           </div>
           {/* Stats Summary */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark shadow-sm">
+            <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-dark-800 shadow-sm">
               <div className="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase mb-1">Total Sent</div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '—' : announcements.length}</div>
             </div>
-            <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-border-dark shadow-sm">
+            <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-dark-800 shadow-sm">
               <div className="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase mb-1">Active Now</div>
               <div className="text-2xl font-bold text-slate-900 dark:text-white">{loading ? '—' : activeCount}</div>
             </div>

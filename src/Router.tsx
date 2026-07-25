@@ -13,6 +13,8 @@ const TermsOfService = lazy(() => import('../apps/marketing/TermsOfService'));
 const MarketingSupport = lazy(() => import('../apps/marketing/Support'));
 const Login = lazy(() => import('../apps/auth/Login'));
 const Register = lazy(() => import('../apps/auth/Register'));
+const ForgotPassword = lazy(() => import('../apps/auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('../apps/auth/ResetPassword'));
 const ArtistDashboard = lazy(() => import('../apps/artist/Dashboard'));
 const AdminDashboard = lazy(() => import('../apps/admin/AdminDashboard'));
 
@@ -79,6 +81,8 @@ const ArtistAppRoutes: React.FC = () => (
   <Routes>
     <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
     <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
+    <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
+    <Route path="/reset-password" element={<PublicOnlyRoute><ResetPassword /></PublicOnlyRoute>} />
     <Route
       path="/*"
       element={
@@ -95,6 +99,8 @@ const AdminAppRoutes: React.FC = () => (
   <Routes>
     <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
     <Route path="/register" element={<Navigate to="/login" replace />} />
+    <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
+    <Route path="/reset-password" element={<PublicOnlyRoute><ResetPassword /></PublicOnlyRoute>} />
     <Route
       path="/*"
       element={
@@ -132,6 +138,8 @@ const MainAppRoutes: React.FC = () => (
         </PublicOnlyRoute>
       }
     />
+    <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
+    <Route path="/reset-password" element={<PublicOnlyRoute><ResetPassword /></PublicOnlyRoute>} />
 
     <Route
       path="/dashboard/*"
