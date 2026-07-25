@@ -271,11 +271,13 @@ class DatabaseService {
     // ========================================
 
     /**
-     * Get session headers for authenticated requests
+     * Get session headers for authenticated requests.
+     * Must match the token key AuthContext actually writes (JWT bearer auth),
+     * not the old session-id scheme the deleted mock server used.
      */
     private getSessionHeaders(): Record<string, string> {
-        const sessionId = localStorage.getItem('sessionId');
-        return sessionId ? { 'x-session-id': sessionId } : {};
+        const token = localStorage.getItem('eajmusic_token');
+        return token ? { Authorization: `Bearer ${token}` } : {};
     }
 
     /**
