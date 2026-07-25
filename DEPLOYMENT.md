@@ -69,7 +69,7 @@ The frontend is a React/Vite SPA. It should be built locally or on a CI/CD pipel
     Use PM2 to keep the process alive.
 
     ```bash
-    pm2 start index.js --name "eajmusic-api"
+    pm2 start src/index.js --name eajmusic-api
     pm2 save
     pm2 startup
     ```

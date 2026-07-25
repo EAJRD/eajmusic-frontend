@@ -1,13 +1,48 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface HomeProps {
   onNavigate: (domain: 'main' | 'artist' | 'admin' | 'login' | 'register' | 'about' | 'support' | 'terms' | 'privacy' | 'careers') => void;
 }
 
 const Home: React.FC<HomeProps> = ({ onNavigate }) => {
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState('');
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/public/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if (res.ok) {
+        setToast('Successfully joined the newsletter!');
+        setEmail('');
+      } else {
+        setToast('Failed to join newsletter.');
+      }
+    } catch (err) {
+      setToast('Network error.');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setToast(''), 3000);
+    }
+  };
+
   return (
     <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-x-hidden font-sans">
-      {/* Navigation */}
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-50 bg-slate-900 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3">
+          <span className="material-symbols-outlined text-emerald-400">check_circle</span>
+          <p className="font-bold">{toast}</p>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 glass-nav bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-slate-200 dark:border-white/10 text-slate-900 dark:text-white transition-colors">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -43,11 +78,8 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </nav>
 
       {/* Hero Section */}
-      {/* Hero Section */}
       <section className="relative pt-32 pb-20 text-slate-900 dark:text-white transition-colors bg-slate-50 dark:bg-black overflow-hidden">
-        {/* Dark Mode Gradient Overlay */}
         <div className="absolute inset-0 pointer-events-none opacity-0 dark:opacity-100 transition-opacity duration-500" style={{ background: 'radial-gradient(circle at 50% 50%, rgba(37, 37, 244, 0.15) 0%, rgba(10, 10, 10, 1) 70%)' }}></div>
-        {/* Light Mode Gradient Overlay */}
         <div className="absolute inset-0 pointer-events-none opacity-100 dark:opacity-0 transition-opacity duration-500 bg-[radial-gradient(circle_at_50%_0%,rgba(37,37,244,0.05)_0%,rgba(255,255,255,1)_60%)]"></div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
@@ -355,10 +387,19 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <div>
             <h4 className="font-bold mb-6">Newsletter</h4>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Get the latest music industry news and tips.</p>
-            <div className="flex gap-2">
-              <input type="email" placeholder="Email address" className="flex-1 bg-white/5 border-white/10 rounded-lg text-sm focus:ring-primary focus:border-primary" />
-              <button className="bg-primary px-4 py-2 rounded-lg font-bold text-sm">Join</button>
-            </div>
+            <form onSubmit={handleNewsletterSubmit} className="flex gap-2">
+              <input 
+                type="email" 
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="Email address" 
+                className="flex-1 bg-white/5 border-white/10 rounded-lg text-sm focus:ring-primary focus:border-primary px-3 py-2" 
+                required 
+              />
+              <button disabled={loading} type="submit" className="bg-primary px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-50">
+                {loading ? '...' : 'Join'}
+              </button>
+            </form>
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-6 mt-16 pt-8 border-t border-slate-200 dark:border-white/5 text-center text-slate-500 dark:text-slate-400 text-xs transition-colors">

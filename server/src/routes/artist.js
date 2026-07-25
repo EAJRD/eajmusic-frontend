@@ -66,7 +66,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
     availableBalance: wallet?.availableBalance || 0,
     pendingBalance: wallet?.pendingBalance || 0,
     monthlyListeners: Math.floor(Number(recentStats._sum.streams || 0) / 10),
-    followers: Math.floor(Math.random() * 5000), // Placeholder
+    followers: 0, // TODO: Implement real follower tracking
   });
 }));
 
@@ -627,6 +627,52 @@ router.post('/wallet/request-payout', asyncHandler(async (req, res) => {
   });
 }));
 
+router.get('/wallet/transactions', asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20 } = req.query;
+  
+  // Get royalties as incoming transactions
+  const royalties = await prisma.royalty.findMany({
+    where: { userId: req.user.id, status: 'cleared' },
+    include: {
+      dsp: { select: { name: true } },
+      release: { select: { title: true } },
+    },
+    orderBy: { processedAt: 'desc' },
+    take: parseInt(limit),
+  });
+
+  // Get payouts as outgoing transactions
+  const payouts = await prisma.payout.findMany({
+    where: { userId: req.user.id },
+    orderBy: { requestedAt: 'desc' },
+    take: parseInt(limit),
+  });
+
+  // Combine and sort
+  const transactions = [
+    ...royalties.map(r => ({
+      id: r.id,
+      type: 'royalty',
+      description: `Royalty - ${r.release?.title || 'Unknown'}`,
+      source: r.dsp?.name || 'Platform',
+      amount: Number(r.netRevenue),
+      date: r.processedAt || r.createdAt,
+      status: 'cleared',
+    })),
+    ...payouts.map(p => ({
+      id: p.id,
+      type: 'payout',
+      description: 'Payout',
+      method: p.method,
+      amount: -Number(p.amount),
+      date: p.requestedAt,
+      status: p.status.toLowerCase(),
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  res.json({ transactions });
+}));
+
 // ===========================================
 // SUPPORT
 // ===========================================
@@ -707,6 +753,18 @@ router.post('/tickets/:id/reply', asyncHandler(async (req, res) => {
     success: true,
     message: newMessage,
   });
+}));
+
+router.patch('/profile', asyncHandler(async (req, res) => {
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+  const updatedUser = await prisma.user.update({
+    where: { id: req.user.id },
+    data: { name },
+  });
+  res.json({ success: true, user: updatedUser });
 }));
 
 export default router;

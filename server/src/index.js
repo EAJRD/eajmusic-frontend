@@ -11,9 +11,13 @@ import authRoutes from './routes/auth.js';
 import artistRoutes from './routes/artist.js';
 import adminRoutes from './routes/admin.js';
 import uploadRoutes from './routes/upload.js';
+import paymentRoutes from './routes/payment.js';
+import publicRoutes from './routes/public.js';
+import supportRoutes from './routes/support.js';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { authenticate } from './middleware/auth.js';
 
 // Initialize
 const app = express();
@@ -34,7 +38,10 @@ const corsOrigins = process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, etc)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      if (process.env.NODE_ENV === 'development') return callback(null, true);
+      return callback(new Error('Origin required'));
+    }
     if (corsOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
@@ -78,6 +85,10 @@ if (process.env.NODE_ENV !== 'production') {
   app.use('/uploads', express.static('uploads'));
 }
 
+if (process.env.NODE_ENV === 'production') {
+  app.use('/uploads', authenticate, express.static('uploads'));
+}
+
 // ===========================================
 // ROUTES
 // ===========================================
@@ -107,6 +118,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/artist', artistRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/public', publicRoutes);
+app.use('/api/support', supportRoutes);
 
 // ===========================================
 // ERROR HANDLING

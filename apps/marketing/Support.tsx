@@ -12,6 +12,8 @@ const Support: React.FC<SupportProps> = ({ onNavigate }) => {
         subject: '',
         message: ''
     });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [toast, setToast] = useState('');
 
     const faqs = [
         {
@@ -63,14 +65,37 @@ const Support: React.FC<SupportProps> = ({ onNavigate }) => {
         }
     ];
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        alert('Formulario enviado. Te contactaremos pronto a ' + formData.email);
-        setFormData({ name: '', email: '', subject: '', message: '' });
+        setIsSubmitting(true);
+        try {
+            const res = await fetch('/api/public/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            if (res.ok) {
+                setToast('Formulario enviado. Te contactaremos pronto.');
+                setFormData({ name: '', email: '', subject: '', message: '' });
+            } else {
+                setToast('Hubo un error al enviar tu mensaje.');
+            }
+        } catch (error) {
+            setToast('Error de conexión.');
+        } finally {
+            setIsSubmitting(false);
+            setTimeout(() => setToast(''), 3000);
+        }
     };
 
     return (
         <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-x-hidden font-sans min-h-screen">
+            {toast && (
+                <div className="fixed bottom-4 right-4 z-[60] bg-slate-900 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3">
+                    <span className="material-symbols-outlined text-emerald-400">check_circle</span>
+                    <p className="font-bold">{toast}</p>
+                </div>
+            )}
             {/* Navigation */}
             <nav className="fixed top-0 w-full z-50 glass-nav bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-slate-200 dark:border-white/10 text-slate-900 dark:text-white transition-colors">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -269,9 +294,10 @@ const Support: React.FC<SupportProps> = ({ onNavigate }) => {
                                 </div>
                                 <button
                                     type="submit"
-                                    className="w-full bg-primary hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-primary/20"
+                                    disabled={isSubmitting}
+                                    className="w-full bg-primary hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
                                 >
-                                    Enviar Mensaje
+                                    {isSubmitting ? 'Enviando...' : 'Enviar Mensaje'}
                                 </button>
                             </form>
                         </div>

@@ -483,4 +483,137 @@ router.post('/refresh', asyncHandler(async (req, res) => {
   }
 }));
 
+// ===========================================
+// FORGOT PASSWORD
+// ===========================================
+router.post('/forgot-password', asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Email is required' });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+  });
+
+  // Always return success to prevent email enumeration
+  if (!user) {
+    return res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' });
+  }
+
+  // Generate reset token (valid for 1 hour)
+  const resetToken = jwt.sign(
+    { userId: user.id, type: 'password_reset' },
+    process.env.JWT_SECRET,
+    { expiresIn: '1h' }
+  );
+
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+
+  // Log reset URL (in production, send via email)
+  console.log(`\n[PASSWORD RESET] Token for ${email}: ${resetUrl}\n`);
+
+  // TODO: Send email via SMTP when configured
+  // Use nodemailer with SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS env vars
+  if (process.env.SMTP_HOST) {
+    try {
+      const nodemailer = await import('nodemailer');
+      const transporter = nodemailer.default.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || '"EAJMUSIC" <noreply@eajmusic.com>',
+        to: email,
+        subject: 'Reset Your Password - EAJMUSIC',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #7c3aed;">Reset Your Password</h2>
+            <p>Hi ${user.name},</p>
+            <p>We received a request to reset your password. Click the button below to create a new one:</p>
+            <a href="${resetUrl}" style="display: inline-block; background: #7c3aed; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; margin: 16px 0;">Reset Password</a>
+            <p style="color: #666; font-size: 14px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p style="color: #999; font-size: 12px;">EAJMUSIC - Music Distribution Platform</p>
+          </div>
+        `,
+      });
+    } catch (emailError) {
+      console.error('[EMAIL ERROR]', emailError.message);
+    }
+  }
+
+  // Audit log
+  await prisma.auditLog.create({
+    data: {
+      userId: user.id,
+      action: 'PASSWORD_RESET_REQUESTED',
+      entityType: 'User',
+      entityId: user.id,
+      ipAddress: req.ip,
+    },
+  });
+
+  res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' });
+}));
+
+// ===========================================
+// RESET PASSWORD
+// ===========================================
+router.post('/reset-password', asyncHandler(async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Token and new password are required' });
+  }
+
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Password must be at least 8 characters' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.type !== 'password_reset') {
+      throw new Error('Invalid token type');
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, parseInt(process.env.BCRYPT_ROUNDS) || 12);
+
+    // Update password
+    await prisma.user.update({
+      where: { id: decoded.userId },
+      data: { passwordHash },
+    });
+
+    // Invalidate all sessions
+    await prisma.session.deleteMany({
+      where: { userId: decoded.userId },
+    });
+
+    // Audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: decoded.userId,
+        action: 'PASSWORD_RESET_COMPLETED',
+        entityType: 'User',
+        entityId: decoded.userId,
+        ipAddress: req.ip,
+      },
+    });
+
+    res.json({ success: true, message: 'Password reset successfully. Please log in with your new password.' });
+  } catch (error) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Invalid or expired reset token' });
+  }
+}));
+
 export default router;

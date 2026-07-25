@@ -8,6 +8,7 @@ import Wallet from './pages/Wallet';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Support from './pages/Support';
+import Catalog from './pages/Catalog';
 import SubmissionSuccessModal from './components/SubmissionSuccessModal';
 
 const ArtistDashboard: React.FC = () => {
@@ -28,7 +29,7 @@ const ArtistDashboard: React.FC = () => {
       case 'analytics':
         return <TrackAnalytics />;
       case 'music':
-        return <MyMusic />;
+        return <Catalog />;
       case 'wallet':
         return <Wallet />;
       case 'profile':
@@ -266,45 +267,6 @@ const ArtistOverview = ({ onUploadClick }: { onUploadClick: () => void }) => (
           <p className="text-sm font-bold text-slate-500 group-hover:text-brand-500">Distribute New Music</p>
         </div>
       </div>
-    </div>
-  </div>
-);
-
-const MyMusic = () => (
-  <div className="p-8 max-w-7xl mx-auto">
-    <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-8">My Music Catalog</h1>
-    <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-dark-800 overflow-hidden shadow-sm">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50 dark:bg-dark-800 text-xs font-bold text-slate-500 uppercase">
-          <tr>
-            <th className="px-6 py-4">Release</th>
-            <th className="px-6 py-4">Status</th>
-            <th className="px-6 py-4">Date</th>
-            <th className="px-6 py-4">Streams</th>
-            <th className="px-6 py-4">Revenue</th>
-            <th className="px-6 py-4 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-dark-800">
-          {[1, 2, 3].map(i => (
-            <tr key={i} className="hover:bg-slate-50 dark:hover:bg-dark-800/50 transition-colors">
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <img src={`https://picsum.photos/200/200?random=${i}`} className="size-10 rounded shadow-sm" alt="Cover" />
-                  <span className="font-bold text-sm text-slate-900 dark:text-white">Track Title {i}</span>
-                </div>
-              </td>
-              <td className="px-6 py-4"><span className="px-2 py-1 rounded text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 font-bold">Live</span></td>
-              <td className="px-6 py-4 text-sm text-slate-500">Oct 15, 2023</td>
-              <td className="px-6 py-4 text-sm font-mono">124,500</td>
-              <td className="px-6 py-4 text-sm font-mono">$450.25</td>
-              <td className="px-6 py-4 text-right">
-                <button className="text-slate-400 hover:text-brand-500"><span className="material-symbols-outlined">more_vert</span></button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   </div>
 );

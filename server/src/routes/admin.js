@@ -974,20 +974,19 @@ router.post('/settings/:key', asyncHandler(async (req, res) => {
 // AUDIT LOGS
 // ===========================================
 router.get('/audit-logs', asyncHandler(async (req, res) => {
-  const { userId, action, page = 1, limit = 50 } = req.query;
+  const { action, userId, entityType, page = 1, limit = 50 } = req.query;
 
   const where = {
+    ...(action && { action: { contains: action, mode: 'insensitive' } }),
     ...(userId && { userId }),
-    ...(action && { action }),
+    ...(entityType && { entityType }),
   };
 
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
       where,
       include: {
-        user: {
-          select: { id: true, name: true, email: true },
-        },
+        user: { select: { id: true, name: true, email: true, avatarUrl: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (parseInt(page) - 1) * parseInt(limit),
@@ -1005,6 +1004,117 @@ router.get('/audit-logs', asyncHandler(async (req, res) => {
       pages: Math.ceil(total / parseInt(limit)),
     },
   });
+}));
+
+// ===========================================
+// FINANCE OVERVIEW
+// ===========================================
+router.get('/finance/overview', asyncHandler(async (req, res) => {
+  const [totalRevenue, totalCommissions, totalPayouts, pendingPayouts, completedPayouts, monthlyRevenue] = await Promise.all([
+    prisma.royalty.aggregate({ _sum: { grossRevenue: true } }),
+    prisma.royalty.aggregate({ _sum: { commissionAmount: true } }),
+    prisma.payout.aggregate({ where: { status: 'COMPLETED' }, _sum: { amount: true } }),
+    prisma.payout.aggregate({ where: { status: 'PENDING' }, _sum: { amount: true }, _count: true }),
+    prisma.payout.count({ where: { status: 'COMPLETED' } }),
+    // Last 12 months revenue
+    prisma.$queryRaw`
+      SELECT 
+        DATE_TRUNC('month', created_at) as month,
+        SUM(gross_revenue) as revenue,
+        SUM(commission_amount) as commission
+      FROM royalties
+      WHERE created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY DATE_TRUNC('month', created_at)
+      ORDER BY month ASC
+    `,
+  ]);
+
+  res.json({
+    totalRevenue: totalRevenue._sum.grossRevenue || 0,
+    totalCommissions: totalCommissions._sum.commissionAmount || 0,
+    totalPayoutsAmount: totalPayouts._sum.amount || 0,
+    pendingPayoutsAmount: pendingPayouts._sum.amount || 0,
+    pendingPayoutsCount: pendingPayouts._count || 0,
+    completedPayoutsCount: completedPayouts,
+    monthlyRevenue: monthlyRevenue || [],
+  });
+}));
+
+// ===========================================
+// CHANGE USER PLAN
+// ===========================================
+router.patch('/users/:id/plan', asyncHandler(async (req, res) => {
+  const { plan } = req.body;
+
+  const validPlans = ['FREE', 'PRO', 'LABEL_PLUS', 'ENTERPRISE'];
+  if (!validPlans.includes(plan)) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Invalid plan type' });
+  }
+
+  const commissionRates = { FREE: 15, PRO: 0, LABEL_PLUS: 5, ENTERPRISE: 3 };
+  const maxProfiles = { FREE: 1, PRO: 3, LABEL_PLUS: 10, ENTERPRISE: 50 };
+
+  const subscription = await prisma.subscription.upsert({
+    where: { userId: req.params.id },
+    update: {
+      plan,
+      commissionRate: commissionRates[plan],
+      maxArtistProfiles: maxProfiles[plan],
+    },
+    create: {
+      userId: req.params.id,
+      plan,
+      commissionRate: commissionRates[plan],
+      maxArtistProfiles: maxProfiles[plan],
+    },
+  });
+
+  // Audit log
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user.id,
+      action: 'USER_PLAN_CHANGED',
+      entityType: 'Subscription',
+      entityId: subscription.id,
+      newValues: { plan, userId: req.params.id },
+      ipAddress: req.ip,
+    },
+  });
+
+  res.json({ success: true, message: 'User plan updated', subscription });
+}));
+
+// ===========================================
+// PLATFORM SETTINGS
+// ===========================================
+router.get('/settings', asyncHandler(async (req, res) => {
+  const settings = await prisma.platformSetting.findMany();
+  const settingsMap = {};
+  settings.forEach(s => { settingsMap[s.key] = s.value; });
+  res.json({ settings: settingsMap });
+}));
+
+router.put('/settings/:key', asyncHandler(async (req, res) => {
+  const { value, description } = req.body;
+
+  const setting = await prisma.platformSetting.upsert({
+    where: { key: req.params.key },
+    update: { value, ...(description && { description }) },
+    create: { key: req.params.key, value, description: description || '' },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: req.user.id,
+      action: 'SETTING_UPDATED',
+      entityType: 'PlatformSetting',
+      entityId: req.params.key,
+      newValues: { key: req.params.key, value },
+      ipAddress: req.ip,
+    },
+  });
+
+  res.json({ success: true, setting });
 }));
 
 export default router;

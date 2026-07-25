@@ -6,6 +6,57 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding database...');
 
+  // Bootstrap SUPER_ADMIN
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@eajmusic.com';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'EajAdmin2024!';
+
+  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+  if (!existingAdmin) {
+    const bcrypt = await import('bcryptjs');
+    const passwordHash = await bcrypt.default.hash(adminPassword, 12);
+    
+    const superAdmin = await prisma.user.create({
+      data: {
+        email: adminEmail,
+        passwordHash,
+        name: 'Super Admin',
+        role: 'SUPER_ADMIN',
+        status: 'ACTIVE',
+        emailVerified: true,
+        avatarUrl: `https://ui-avatars.com/api/?name=Super+Admin&background=7c3aed&color=fff`,
+      },
+    });
+
+    await prisma.subscription.create({
+      data: { userId: superAdmin.id, plan: 'ENTERPRISE', commissionRate: 0, maxArtistProfiles: 999 },
+    });
+
+    await prisma.wallet.create({
+      data: { userId: superAdmin.id },
+    });
+
+    // Initialize default platform settings
+    const defaultSettings = [
+      { key: 'ath_movil_enabled', value: false, description: 'Enable ATH Móvil payment integration' },
+      { key: 'min_payout_threshold', value: 50, description: 'Minimum payout amount in USD' },
+      { key: 'standard_processing_days', value: 7, description: 'Standard payout processing time in days' },
+      { key: 'maintenance_mode', value: false, description: 'Enable maintenance mode' },
+      { key: 'allow_registrations', value: true, description: 'Allow new user registrations' },
+    ];
+
+    for (const setting of defaultSettings) {
+      await prisma.platformSetting.upsert({
+        where: { key: setting.key },
+        update: {},
+        create: setting,
+      });
+    }
+
+    console.log(`✅ Super Admin created: ${adminEmail}`);
+  } else {
+    console.log(`ℹ️  Super Admin already exists: ${adminEmail}`);
+  }
+
   // Create admin user
   const adminPassword = await bcrypt.hash('admin123', 12);
   const admin = await prisma.user.upsert({

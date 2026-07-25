@@ -4,11 +4,11 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute, AdminRoute, ArtistRoute, PublicOnlyRoute } from './components/ProtectedRoute';
 
 // Lazy load components for better performance
-const Home = lazy(() => import('./apps/marketing/Home'));
-const Login = lazy(() => import('./apps/auth/Login'));
-const Register = lazy(() => import('./apps/auth/Register'));
-const ArtistDashboard = lazy(() => import('./apps/artist/Dashboard'));
-const AdminDashboard = lazy(() => import('./apps/admin/AdminDashboard'));
+const Home = lazy(() => import('../apps/marketing/Home'));
+const Login = lazy(() => import('../apps/auth/Login'));
+const Register = lazy(() => import('../apps/auth/Register'));
+const ArtistDashboard = lazy(() => import('../apps/artist/Dashboard'));
+const AdminDashboard = lazy(() => import('../apps/admin/AdminDashboard'));
 
 // Loading fallback
 const PageLoader: React.FC = () => (

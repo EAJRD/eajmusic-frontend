@@ -115,13 +115,13 @@ model User {
   wallet            Wallet?
   payouts           Payout[]
   royalties         Royalty[]
-  supportTickets    SupportTicket[]   @relation("TicketCreator")
-  assignedTickets   SupportTicket[]   @relation("TicketAssignee")
-  ticketMessages    TicketMessage[]
+  supportTickets    SupportTicket[]
+  ticketMessages    SupportTicketMessage[]
   sessions          Session[]
   auditLogs         AuditLog[]
   announcements     Announcement[]
   takedownsResolved TakedownRequest[] @relation("TakedownResolver")
+  paymentTransactions PaymentTransaction[]
 
   @@map("users")
 }
@@ -419,39 +419,53 @@ model Payout {
 }
 
 model SupportTicket {
-  id         String       @id @default(uuid())
-  userId     String       @map("user_id")
-  subject    String       @db.VarChar(500)
-  category   String?      @db.VarChar(100)
-  priority   String       @default("normal") @db.VarChar(20)
-  status     TicketStatus @default(OPEN)
-  assignedTo String?      @map("assigned_to")
-  resolvedAt DateTime?    @map("resolved_at")
-  createdAt  DateTime     @default(now()) @map("created_at")
-  updatedAt  DateTime     @updatedAt @map("updated_at")
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  subject     String
+  category    String   @default("General")
+  priority    String   @default("normal")
+  status      String   @default("OPEN")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  // Relations
-  user       User            @relation("TicketCreator", fields: [userId], references: [id])
-  assignee   User?           @relation("TicketAssignee", fields: [assignedTo], references: [id])
-  messages   TicketMessage[]
+  user User @relation(fields: [userId], references: [id])
+  messages SupportTicketMessage[]
 
   @@map("support_tickets")
 }
 
-model TicketMessage {
+model SupportTicketMessage {
   id          String   @id @default(uuid())
   ticketId    String   @map("ticket_id")
   userId      String   @map("user_id")
   message     String   @db.Text
-  attachments Json     @default("[]")
   isInternal  Boolean  @default(false) @map("is_internal")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  // Relations
-  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket SupportTicket @relation(fields: [ticketId], references: [id])
   user   User          @relation(fields: [userId], references: [id])
 
-  @@map("ticket_messages")
+  @@map("support_ticket_messages")
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  status    String   @default("SUBSCRIBED")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("newsletter_subscribers")
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  message   String   @db.Text
+  status    String   @default("UNREAD")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("contact_messages")
 }
 
 model Announcement {
@@ -540,4 +554,44 @@ model PlatformSetting {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("platform_settings")
+}
+
+enum PaymentProvider {
+  ATH_MOVIL
+  PAYPAL
+  BANK_TRANSFER
+  STRIPE
+  WISE
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  EXPIRED
+}
+
+model PaymentTransaction {
+  id          String          @id @default(uuid())
+  userId      String          @map("user_id")
+  provider    PaymentProvider
+  externalId  String?         @map("external_id") @db.VarChar(255)
+  amount      Decimal         @db.Decimal(12, 2)
+  currency    String          @default("USD") @db.Char(3)
+  status      PaymentStatus   @default(PENDING)
+  type        String          @default("subscription") @db.VarChar(50)
+  metadata    Json            @default("{}")
+  completedAt DateTime?       @map("completed_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([provider, status])
+  @@index([externalId])
+  @@map("payment_transactions")
 }
