@@ -13,9 +13,13 @@ dist-ssr
 *.local
 
 # Environment files - never commit real secrets, only .env.example
+# Exception: .env.production only holds the PUBLIC API URL (no secrets) so that
+# any build pipeline (e.g. Hostinger auto-deploy from GitHub) bakes the right
+# backend URL into the Vite bundle even without manual env var configuration.
 .env
 .env.*
 !.env.example
+!.env.production
 server/.env
 server/.env.*
 !server/.env.example

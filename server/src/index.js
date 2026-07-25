@@ -40,12 +40,16 @@ app.use(cors({
     // Allow requests with no origin (mobile apps, curl, etc)
     if (!origin) {
       if (process.env.NODE_ENV === 'development') return callback(null, true);
-      return callback(new Error('Origin required'));
+      const err = new Error('Origin required');
+      err.statusCode = 403;
+      return callback(err);
     }
     if (corsOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
-    callback(new Error('Not allowed by CORS'));
+    const err = new Error('Not allowed by CORS');
+    err.statusCode = 403;
+    callback(err);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
