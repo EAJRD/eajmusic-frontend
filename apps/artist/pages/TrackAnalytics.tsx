@@ -1,61 +1,66 @@
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { motion } from 'framer-motion';
-import api from '../../../services/apiClient';
-import { ArtistStats, TopTrack } from '../../../types';
+import { ArtistService } from '../../../src/services/api';
 
-const mockDailyStats = [
-    { date: 'Oct 01', streams: 12000, revenueNet: 45 },
-    { date: 'Oct 05', streams: 15000, revenueNet: 55 },
-    { date: 'Oct 10', streams: 14000, revenueNet: 50 },
-    { date: 'Oct 15', streams: 18000, revenueNet: 65 },
-    { date: 'Oct 20', streams: 22000, revenueNet: 80 },
-    { date: 'Oct 25', streams: 21000, revenueNet: 75 },
-    { date: 'Oct 29', streams: 25000, revenueNet: 90 },
-];
+interface DailyPoint {
+    date: string;
+    streams: number;
+    revenueNet: number;
+}
 
-const mockCountries = [
-    { code: 'US', name: 'United States', flag: '🇺🇸', percent: 45 },
-    { code: 'PR', name: 'Puerto Rico', flag: '🇵🇷', percent: 22 },
-    { code: 'MX', name: 'Mexico', flag: '🇲🇽', percent: 12 },
-    { code: 'ES', name: 'Spain', flag: '🇪🇸', percent: 8 },
-    { code: 'CO', name: 'Colombia', flag: '🇨🇴', percent: 5 },
-    { code: 'DO', name: 'Dominican Republic', flag: '🇩🇴', percent: 3 },
-    { code: 'AR', name: 'Argentina', flag: '🇦🇷', percent: 2 },
-    { code: 'CL', name: 'Chile', flag: '🇨🇱', percent: 1 },
-    { code: 'PE', name: 'Peru', flag: '🇵🇪', percent: 1 },
-    { code: 'OT', name: 'Other', flag: '🌍', percent: 1 },
-];
+interface CountryPoint {
+    countryCode: string;
+    streams: number;
+    percent: number;
+}
+
+const COUNTRY_NAMES: Record<string, { name: string; flag: string }> = {
+    US: { name: 'United States', flag: '🇺🇸' },
+    PR: { name: 'Puerto Rico', flag: '🇵🇷' },
+    MX: { name: 'Mexico', flag: '🇲🇽' },
+    ES: { name: 'Spain', flag: '🇪🇸' },
+    CO: { name: 'Colombia', flag: '🇨🇴' },
+    DO: { name: 'Dominican Republic', flag: '🇩🇴' },
+    AR: { name: 'Argentina', flag: '🇦🇷' },
+    CL: { name: 'Chile', flag: '🇨🇱' },
+    PE: { name: 'Peru', flag: '🇵🇪' },
+    BR: { name: 'Brazil', flag: '🇧🇷' },
+    CA: { name: 'Canada', flag: '🇨🇦' },
+    GB: { name: 'United Kingdom', flag: '🇬🇧' },
+};
+
+const timeRangeToPeriod: Record<string, string> = { '24h': '24h', '7d': '7d', '28d': '28d', 'YTD': 'ytd', 'All': 'all' };
 
 const TrackAnalytics: React.FC = () => {
     const [timeRange, setTimeRange] = useState('28d');
-    const [stats, setStats] = useState<ArtistStats | null>(null);
-    const [chartData, setChartData] = useState(mockDailyStats);
-    const [topTracks, setTopTracks] = useState<TopTrack[]>([]);
+    const [stats, setStats] = useState<any>(null);
+    const [chartData, setChartData] = useState<DailyPoint[]>([]);
+    const [topTracks, setTopTracks] = useState<any[]>([]);
+    const [countryData, setCountryData] = useState<CountryPoint[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchAnalytics = async () => {
+            setIsLoading(true);
             try {
                 const [statsData, overviewData] = await Promise.all([
-                    api.get<ArtistStats>('/artist/stats').catch(() => null),
-                    api.get<any>(`/artist/analytics/overview?period=${timeRange}`).catch(() => null)
+                    ArtistService.getStats().catch(() => null),
+                    ArtistService.getAnalytics(timeRangeToPeriod[timeRange] || '28d').catch(() => null),
                 ]);
 
-                if (statsData) setStats(statsData);
-                else setStats({ totalStreams: 842500, totalRevenue: 3240.50, monthlyListeners: 125200, followers: 45000 });
+                setStats(statsData || { totalStreams: 0, totalRevenue: 0, monthlyListeners: 0, followers: 0 });
 
-                if (overviewData?.daily) setChartData(overviewData.daily);
-                if (overviewData?.topTracks) setTopTracks(overviewData.topTracks);
-                else {
-                    setTopTracks([
-                        { trackId: '1', _sum: { streams: 145000, revenueNet: 550 }, track: { title: 'Neon Nights', release: { title: 'Cyber Dreamer', coverArtUrl: 'https://picsum.photos/200/200?random=1' } } },
-                        { trackId: '2', _sum: { streams: 120000, revenueNet: 450 }, track: { title: 'Midnight City', release: { title: 'Cyber Dreamer', coverArtUrl: 'https://picsum.photos/200/200?random=2' } } },
-                        { trackId: '3', _sum: { streams: 95000, revenueNet: 380 }, track: { title: 'Synthetic Love', release: { title: 'Cyber Dreamer', coverArtUrl: 'https://picsum.photos/200/200?random=3' } } },
-                    ]);
-                }
+                const daily = (overviewData?.dailyStats || []).map((d: any) => ({
+                    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    streams: Number(d._sum?.streams || 0),
+                    revenueNet: Number(d._sum?.revenueNet || 0),
+                }));
+                setChartData(daily);
+                setTopTracks(overviewData?.topTracks || []);
+                setCountryData(overviewData?.countryBreakdown || []);
             } catch (error) {
-                console.error("Failed to load analytics", error);
+                console.error('Failed to load analytics', error);
             } finally {
                 setIsLoading(false);
             }
@@ -98,12 +103,9 @@ const TrackAnalytics: React.FC = () => {
                         <div className="bg-blue-500/10 p-3 rounded-xl text-blue-500">
                             <span className="material-symbols-outlined">graphic_eq</span>
                         </div>
-                        <span className="flex items-center text-xs font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-full">
-                            <span className="material-symbols-outlined text-[14px]">trending_up</span> +12.5%
-                        </span>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Total Streams</p>
-                    <h2 className="text-3xl font-black text-slate-900 dark:text-white">{stats.totalStreams >= 1000 ? (stats.totalStreams/1000).toFixed(1) + 'k' : stats.totalStreams}</h2>
+                    <h2 className="text-3xl font-black text-slate-900 dark:text-white">{stats.totalStreams >= 1000 ? (stats.totalStreams / 1000).toFixed(1) + 'k' : stats.totalStreams}</h2>
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white dark:bg-card-dark rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
@@ -113,7 +115,7 @@ const TrackAnalytics: React.FC = () => {
                         </div>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Est. Revenue</p>
-                    <h2 className="text-3xl font-black text-slate-900 dark:text-white">${stats.totalRevenue.toLocaleString()}</h2>
+                    <h2 className="text-3xl font-black text-slate-900 dark:text-white">${Number(stats.totalRevenue || 0).toLocaleString()}</h2>
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-white dark:bg-card-dark rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -123,7 +125,7 @@ const TrackAnalytics: React.FC = () => {
                         </div>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Monthly Listeners</p>
-                    <h2 className="text-3xl font-black text-slate-900 dark:text-white">{(stats.monthlyListeners/1000).toFixed(1)}k</h2>
+                    <h2 className="text-3xl font-black text-slate-900 dark:text-white">{((stats.monthlyListeners || 0) / 1000).toFixed(1)}k</h2>
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white dark:bg-card-dark rounded-2xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -133,7 +135,7 @@ const TrackAnalytics: React.FC = () => {
                         </div>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Followers</p>
-                    <h2 className="text-3xl font-black text-slate-900 dark:text-white">{(stats.followers/1000).toFixed(1)}k</h2>
+                    <h2 className="text-3xl font-black text-slate-900 dark:text-white">{((stats.followers || 0) / 1000).toFixed(1)}k</h2>
                 </motion.div>
             </div>
 
@@ -141,52 +143,61 @@ const TrackAnalytics: React.FC = () => {
                 {/* Main Graph Area */}
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="lg:col-span-2 bg-white dark:bg-card-dark rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm min-h-[500px] flex flex-col">
                     <h3 className="text-lg font-bold mb-6">Streaming Trends</h3>
-                    
-                    <div className="h-48 mb-8">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="colorStreams" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4}/>
-                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                                <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }} />
-                                <Area type="monotone" dataKey="streams" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorStreams)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
 
-                    <h3 className="text-lg font-bold mb-4">Revenue Trends</h3>
-                    <div className="h-40 flex-1">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-                                <XAxis dataKey="date" hide />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                                <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-                                <Bar dataKey="revenueNet" fill="#2FCB6F" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                    {chartData.length === 0 ? (
+                        <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">No streaming data for this period yet.</div>
+                    ) : (
+                        <>
+                            <div className="h-48 mb-8">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorStreams" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                                        <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }} />
+                                        <Area type="monotone" dataKey="streams" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorStreams)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            <h3 className="text-lg font-bold mb-4">Revenue Trends</h3>
+                            <div className="h-40 flex-1">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                                        <XAxis dataKey="date" hide />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                                        <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                                        <Bar dataKey="revenueNet" fill="#2FCB6F" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </>
+                    )}
                 </motion.div>
 
                 {/* Top Tracks List */}
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 shadow-xl flex flex-col">
                     <h3 className="text-lg font-bold mb-6">Top Performing Tracks</h3>
                     <div className="flex-1 space-y-4 overflow-y-auto">
+                        {topTracks.length === 0 && (
+                            <p className="text-sm text-slate-400 text-center py-8">No streaming activity yet.</p>
+                        )}
                         {topTracks.map((track, i) => (
                             <div key={track.trackId} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer group">
                                 <span className="font-mono text-slate-500 w-4 text-center">{i + 1}</span>
-                                <div className="size-10 rounded-lg bg-slate-700 bg-cover bg-center shrink-0" style={{ backgroundImage: `url('${track.track.release.coverArtUrl || 'https://via.placeholder.com/150'}')` }}></div>
+                                <div className="size-10 rounded-lg bg-slate-700 bg-cover bg-center shrink-0" style={{ backgroundImage: `url('${track.track?.release?.coverArtUrl || 'https://placehold.co/150'}')` }}></div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-sm truncate group-hover:text-brand-400 transition-colors">{track.track.title}</p>
-                                    <p className="text-xs text-slate-400 truncate">{track.track.release.title}</p>
+                                    <p className="font-bold text-sm truncate group-hover:text-brand-400 transition-colors">{track.track?.title}</p>
+                                    <p className="text-xs text-slate-400 truncate">{track.track?.release?.title}</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="font-bold text-sm">{(track._sum.streams >= 1000 ? (track._sum.streams/1000).toFixed(1) + 'k' : track._sum.streams)}</p>
-                                    <span className="text-[10px] text-emerald-400">${track._sum.revenueNet.toFixed(2)}</span>
+                                    <p className="font-bold text-sm">{(track._sum.streams >= 1000 ? (track._sum.streams / 1000).toFixed(1) + 'k' : track._sum.streams)}</p>
+                                    <span className="text-[10px] text-emerald-400">${Number(track._sum.revenueNet || 0).toFixed(2)}</span>
                                 </div>
                             </div>
                         ))}
@@ -199,33 +210,37 @@ const TrackAnalytics: React.FC = () => {
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-lg font-bold">Streams by Country</h3>
                 </div>
-                <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart layout="vertical" data={mockCountries} margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
-                            <XAxis type="number" hide />
-                            <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={({x, y, payload}) => {
-                                const country = mockCountries.find(c => c.name === payload.value);
-                                return (
-                                    <g transform={`translate(${x},${y})`}>
-                                        <text x={0} y={0} dy={4} textAnchor="end" fill="#64748b" fontSize="12" fontWeight="bold">
-                                            {country?.flag} {payload.value}
-                                        </text>
-                                    </g>
-                                )
-                            }} width={140} />
-                            <Tooltip 
-                                cursor={{ fill: 'rgba(255,255,255,0.05)' }} 
-                                contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
-                                formatter={(value: number) => [`${value}%`, 'Streams']}
-                            />
-                            <Bar dataKey="percent" fill="#8b5cf6" radius={[0, 4, 4, 0]}>
-                                {mockCountries.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={index < 3 ? '#8b5cf6' : '#cbd5e1'} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
+                {countryData.length === 0 ? (
+                    <div className="h-40 flex items-center justify-center text-slate-400 text-sm">No geographic breakdown available yet.</div>
+                ) : (
+                    <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart layout="vertical" data={countryData} margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
+                                <XAxis type="number" hide />
+                                <YAxis type="category" dataKey="countryCode" axisLine={false} tickLine={false} tick={({ x, y, payload }) => {
+                                    const info = COUNTRY_NAMES[payload.value] || { name: payload.value, flag: '🌍' };
+                                    return (
+                                        <g transform={`translate(${x},${y})`}>
+                                            <text x={0} y={0} dy={4} textAnchor="end" fill="#64748b" fontSize="12" fontWeight="bold">
+                                                {info.flag} {info.name}
+                                            </text>
+                                        </g>
+                                    );
+                                }} width={160} />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }}
+                                    formatter={(value: number) => [`${value}%`, 'Streams']}
+                                />
+                                <Bar dataKey="percent" fill="#8b5cf6" radius={[0, 4, 4, 0]}>
+                                    {countryData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={index < 3 ? '#8b5cf6' : '#cbd5e1'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
             </motion.div>
         </div>
     );

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { api } from '../../src/services/api';
 
 interface HomeProps {
   onNavigate: (domain: 'main' | 'artist' | 'admin' | 'login' | 'register' | 'about' | 'support' | 'terms' | 'privacy' | 'careers') => void;
@@ -14,19 +15,11 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     if (!email) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/public/newsletter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      if (res.ok) {
-        setToast('Successfully joined the newsletter!');
-        setEmail('');
-      } else {
-        setToast('Failed to join newsletter.');
-      }
+      await api.post('/public/newsletter', { email });
+      setToast('Successfully joined the newsletter!');
+      setEmail('');
     } catch (err) {
-      setToast('Network error.');
+      setToast('Failed to join newsletter.');
     } finally {
       setLoading(false);
       setTimeout(() => setToast(''), 3000);

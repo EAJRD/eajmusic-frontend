@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { api } from '../../src/services/api';
 
 interface SupportProps {
     onNavigate: (domain: 'main' | 'artist' | 'admin' | 'login' | 'register') => void;
@@ -69,19 +70,11 @@ const Support: React.FC<SupportProps> = ({ onNavigate }) => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            const res = await fetch('/api/public/contact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
-            if (res.ok) {
-                setToast('Formulario enviado. Te contactaremos pronto.');
-                setFormData({ name: '', email: '', subject: '', message: '' });
-            } else {
-                setToast('Hubo un error al enviar tu mensaje.');
-            }
+            await api.post('/public/contact', formData);
+            setToast('Formulario enviado. Te contactaremos pronto.');
+            setFormData({ name: '', email: '', subject: '', message: '' });
         } catch (error) {
-            setToast('Error de conexión.');
+            setToast('Hubo un error al enviar tu mensaje.');
         } finally {
             setIsSubmitting(false);
             setTimeout(() => setToast(''), 3000);

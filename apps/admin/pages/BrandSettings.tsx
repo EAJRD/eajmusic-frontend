@@ -1,13 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AdminService } from '../../../src/services/api';
+
+const SETTINGS_KEY = 'brand_config';
+const DEFAULTS = { primaryColor: '#2563EB', secondaryColor: '#4F46E5', fontFamily: 'Inter' };
 
 const BrandSettings: React.FC = () => {
     // State for color pickers
-    const [primaryColor, setPrimaryColor] = useState('#2563EB');
-    const [secondaryColor, setSecondaryColor] = useState('#4F46E5');
-    const [accentColor, setAccentColor] = useState('#F59E0B');
-    const [fontFamily, setFontFamily] = useState('Inter');
+    const [primaryColor, setPrimaryColor] = useState(DEFAULTS.primaryColor);
+    const [secondaryColor, setSecondaryColor] = useState(DEFAULTS.secondaryColor);
+    const [fontFamily, setFontFamily] = useState(DEFAULTS.fontFamily);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [error, setError] = useState('');
 
     const fonts = ['Inter', 'Roboto', 'Outfit', 'Space Grotesk'];
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await AdminService.getSettings();
+                const brand = res?.settings?.[SETTINGS_KEY];
+                if (brand) {
+                    setPrimaryColor(brand.primaryColor || DEFAULTS.primaryColor);
+                    setSecondaryColor(brand.secondaryColor || DEFAULTS.secondaryColor);
+                    setFontFamily(brand.fontFamily || DEFAULTS.fontFamily);
+                }
+            } catch (err: any) {
+                setError(err.message || 'Failed to load saved branding — showing defaults.');
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, []);
+
+    const handleReset = () => {
+        setPrimaryColor(DEFAULTS.primaryColor);
+        setSecondaryColor(DEFAULTS.secondaryColor);
+        setFontFamily(DEFAULTS.fontFamily);
+    };
+
+    const handlePublish = async () => {
+        setSaving(true);
+        setError('');
+        setSaved(false);
+        try {
+            await AdminService.updateSetting(SETTINGS_KEY, { primaryColor, secondaryColor, fontFamily }, 'Whitelabel brand color and typography configuration');
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err: any) {
+            setError(err.message || 'Failed to publish changes.');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     return (
         <div className="flex-1 px-4 md:px-10 lg:px-20 py-8 max-w-[1600px] w-full mx-auto font-display text-slate-900 dark:text-white">
@@ -15,10 +61,14 @@ const BrandSettings: React.FC = () => {
                 <div>
                     <h1 className="text-3xl font-black tracking-tight mb-2">Whitelabel & Branding</h1>
                     <p className="text-slate-500 dark:text-slate-400">Customize the look and feel of your distribution platform.</p>
+                    {saved && <p className="text-emerald-500 text-sm font-bold mt-2">Changes published successfully.</p>}
+                    {error && <p className="text-rose-500 text-sm font-bold mt-2">{error}</p>}
                 </div>
                 <div className="flex gap-3">
-                    <button className="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Reset Defaults</button>
-                    <button className="px-5 py-2.5 rounded-lg bg-primary text-white font-bold text-sm shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all">Publish Changes</button>
+                    <button onClick={handleReset} disabled={saving} className="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50">Reset Defaults</button>
+                    <button onClick={handlePublish} disabled={saving || loading} className="px-5 py-2.5 rounded-lg bg-primary text-white font-bold text-sm shadow-lg shadow-primary/25 hover:bg-primary/90 transition-all disabled:opacity-50">
+                        {saving ? 'Publishing...' : 'Publish Changes'}
+                    </button>
                 </div>
             </div>
 

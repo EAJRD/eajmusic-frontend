@@ -115,7 +115,8 @@ model User {
   wallet            Wallet?
   payouts           Payout[]
   royalties         Royalty[]
-  supportTickets    SupportTicket[]
+  supportTickets    SupportTicket[]        @relation("TicketCreator")
+  assignedTickets   SupportTicket[]        @relation("TicketAssignee")
   ticketMessages    SupportTicketMessage[]
   sessions          Session[]
   auditLogs         AuditLog[]
@@ -419,16 +420,19 @@ model Payout {
 }
 
 model SupportTicket {
-  id          String   @id @default(uuid())
-  userId      String   @map("user_id")
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
   subject     String
-  category    String   @default("General")
-  priority    String   @default("normal")
-  status      String   @default("OPEN")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  category    String    @default("General")
+  priority    String    @default("normal")
+  status      String    @default("OPEN")
+  assignedTo  String?   @map("assigned_to")
+  resolvedAt  DateTime? @map("resolved_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id])
+  user     User                   @relation("TicketCreator", fields: [userId], references: [id])
+  assignee User?                  @relation("TicketAssignee", fields: [assignedTo], references: [id])
   messages SupportTicketMessage[]
 
   @@map("support_tickets")

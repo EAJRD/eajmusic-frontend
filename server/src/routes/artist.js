@@ -214,6 +214,16 @@ router.post('/releases', validate(createReleaseSchema), asyncHandler(async (req,
           lyricsLanguage: track.lyricsLanguage,
           audioKey: track.audioKey,
           status: 'PROCESSING',
+          ...(track.contributors && track.contributors.length > 0 && {
+            contributors: {
+              create: track.contributors.map((c) => ({
+                name: c.name,
+                role: c.role,
+                royaltyPercentage: c.royaltyPercentage ?? 0,
+                ipiNumber: c.ipiNumber,
+              })),
+            },
+          }),
         })),
       },
     },
@@ -454,6 +464,37 @@ router.post('/profiles', asyncHandler(async (req, res) => {
   });
 }));
 
+router.patch('/profiles/:id', asyncHandler(async (req, res) => {
+  const existing = await prisma.artistProfile.findFirst({
+    where: { id: req.params.id, userId: req.user.id },
+  });
+
+  if (!existing) {
+    return res.status(404).json({
+      error: 'Not Found',
+      message: 'Artist profile not found',
+    });
+  }
+
+  const { name, bio, socialLinks, avatarUrl } = req.body;
+
+  const profile = await prisma.artistProfile.update({
+    where: { id: req.params.id },
+    data: {
+      ...(name !== undefined && { name }),
+      ...(bio !== undefined && { bio }),
+      ...(socialLinks !== undefined && { socialLinks }),
+      ...(avatarUrl !== undefined && { avatarUrl }),
+    },
+  });
+
+  res.json({
+    success: true,
+    message: 'Artist profile updated',
+    profile,
+  });
+}));
+
 // ===========================================
 // ANALYTICS
 // ===========================================
@@ -527,10 +568,33 @@ router.get('/analytics/overview', asyncHandler(async (req, res) => {
     };
   });
 
+  // Get streams by country
+  const countryStats = await prisma.streamingStat.groupBy({
+    by: ['countryCode'],
+    where: {
+      track: { release: { userId: req.user.id } },
+      date: { gte: startDate, lte: endDate },
+      countryCode: { not: null },
+    },
+    _sum: { streams: true },
+    orderBy: { _sum: { streams: 'desc' } },
+    take: 10,
+  });
+
+  const totalCountryStreams = countryStats.reduce((sum, c) => sum + Number(c._sum.streams || 0), 0);
+  const countryBreakdown = countryStats.map(c => ({
+    countryCode: c.countryCode,
+    streams: Number(c._sum.streams || 0),
+    percent: totalCountryStreams > 0
+      ? Number(((Number(c._sum.streams || 0) / totalCountryStreams) * 100).toFixed(1))
+      : 0,
+  }));
+
   res.json({
     period,
     dailyStats: stats,
     topTracks: topTracksWithDetails,
+    countryBreakdown,
     totals: {
       streams: stats.reduce((sum, s) => sum + Number(s._sum.streams || 0), 0),
       revenue: stats.reduce((sum, s) => sum + Number(s._sum.revenueNet || 0), 0),
@@ -692,13 +756,14 @@ router.get('/tickets', asyncHandler(async (req, res) => {
 }));
 
 router.post('/tickets', asyncHandler(async (req, res) => {
-  const { subject, category, message } = req.body;
+  const { subject, category, priority, message } = req.body;
 
   const ticket = await prisma.supportTicket.create({
     data: {
       userId: req.user.id,
       subject,
       category,
+      ...(priority && { priority: priority.toLowerCase() }),
       messages: {
         create: {
           userId: req.user.id,

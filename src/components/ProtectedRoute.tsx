@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { APP_MODE, goToApp } from '../utils/subdomain';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -17,6 +18,25 @@ const LoadingSpinner: React.FC = () => (
     </div>
   </div>
 );
+
+// Sends the user to wherever their role actually lives — same-origin path on
+// the unified domain, or a full cross-subdomain redirect on artist./eaj.
+const RoleHomeRedirect: React.FC<{ role: 'ARTIST' | 'LABEL' | 'ADMIN' | 'SUPER_ADMIN' }> = ({ role }) => {
+  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const targetMode = isAdmin ? 'admin' : 'artist';
+
+  useEffect(() => {
+    if (APP_MODE !== 'main') {
+      goToApp(targetMode, '/');
+    }
+  }, [targetMode]);
+
+  if (APP_MODE === 'main') {
+    return <Navigate to={isAdmin ? '/admin' : '/dashboard'} replace />;
+  }
+
+  return <LoadingSpinner />;
+};
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
@@ -38,11 +58,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Check role-based access
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    // Redirect based on user role
-    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
-      return <Navigate to="/admin" replace />;
-    }
-    return <Navigate to="/dashboard" replace />;
+    return <RoleHomeRedirect role={user.role} />;
   }
 
   return <>{children}</>;
@@ -72,18 +88,13 @@ export const PublicOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ child
   }
 
   if (isAuthenticated && user) {
-    // Redirect based on role
     const from = (location.state as any)?.from?.pathname;
 
-    if (from) {
+    if (from && APP_MODE === 'main') {
       return <Navigate to={from} replace />;
     }
 
-    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
-      return <Navigate to="/admin" replace />;
-    }
-
-    return <Navigate to="/dashboard" replace />;
+    return <RoleHomeRedirect role={user.role} />;
   }
 
   return <>{children}</>;

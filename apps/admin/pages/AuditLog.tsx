@@ -1,105 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AdminService } from '../../../src/services/api';
 
-const MOCK_AUDIT_LOGS = [
-  {
-    id: 'log_1',
-    timestamp: 'Jul 24, 2026 11:30 PM',
-    user: { name: 'Alex Smith', avatar: 'AS' },
-    action: 'USER_REGISTERED',
-    entity: { type: 'User', id: 'u_123' },
-    ip: '192.168.1.100',
-    details: { plan: 'FREE', country: 'US' }
-  },
-  {
-    id: 'log_2',
-    timestamp: 'Jul 24, 2026 10:15 PM',
-    user: { name: 'Sarah Beats', avatar: 'SB' },
-    action: 'RELEASE_SUBMITTED',
-    entity: { type: 'Release', id: 'rel_456' },
-    ip: '10.0.0.55',
-    details: { title: 'Midnight Sun', tracks: 1 }
-  },
-  {
-    id: 'log_3',
-    timestamp: 'Jul 24, 2026 09:45 PM',
-    user: { name: 'System', avatar: 'SY' },
-    action: 'RELEASE_APPROVED',
-    entity: { type: 'Release', id: 'rel_456' },
-    ip: '127.0.0.1',
-    details: { approvedBy: 'Auto-Review AI' }
-  },
-  {
-    id: 'log_4',
-    timestamp: 'Jul 24, 2026 08:20 PM',
-    user: { name: 'Admin User', avatar: 'AD' },
-    action: 'SETTING_UPDATED',
-    entity: { type: 'Settings', id: 'plans_config' },
-    ip: '172.16.0.5',
-    details: { field: 'PRO_PLAN_PRICE', old: 19.99, new: 24.99 }
-  },
-  {
-    id: 'log_5',
-    timestamp: 'Jul 24, 2026 07:10 PM',
-    user: { name: 'DJ Chill', avatar: 'DC' },
-    action: 'ATH_MOVIL_PAYMENT_INITIATED',
-    entity: { type: 'Transaction', id: 'tx_789' },
-    ip: '64.233.160.0',
-    details: { amount: 15.00, phone: '***-***-1234' }
-  }
-];
-
-const ACTION_MAP: Record<string, { label: string, icon: string, color: string }> = {
-  USER_REGISTERED: { label: 'New User Registered', icon: 'person_add', color: 'text-blue-500 bg-blue-500/10' },
-  USER_LOGIN: { label: 'User Logged In', icon: 'login', color: 'text-slate-500 bg-slate-500/10' },
-  RELEASE_CREATED: { label: 'Release Created', icon: 'add_circle', color: 'text-purple-500 bg-purple-500/10' },
-  RELEASE_SUBMITTED: { label: 'Release Submitted', icon: 'upload', color: 'text-purple-500 bg-purple-500/10' },
-  RELEASE_APPROVED: { label: 'Release Approved', icon: 'check_circle', color: 'text-emerald-500 bg-emerald-500/10' },
-  RELEASE_REJECTED: { label: 'Release Rejected', icon: 'cancel', color: 'text-rose-500 bg-rose-500/10' },
-  PASSWORD_CHANGED: { label: 'Password Changed', icon: 'lock', color: 'text-amber-500 bg-amber-500/10' },
-  PAYOUT_COMPLETED: { label: 'Payout Processed', icon: 'payments', color: 'text-emerald-500 bg-emerald-500/10' },
-  SETTING_UPDATED: { label: 'Setting Updated', icon: 'settings', color: 'text-slate-500 bg-slate-500/10' },
-  USER_STATUS_CHANGED: { label: 'User Status Changed', icon: 'manage_accounts', color: 'text-amber-500 bg-amber-500/10' },
-  USER_ROLE_CHANGED: { label: 'User Role Changed', icon: 'admin_panel_settings', color: 'text-indigo-500 bg-indigo-500/10' },
-  ATH_MOVIL_PAYMENT_INITIATED: { label: 'ATH Móvil Payment Started', icon: 'phone_iphone', color: 'text-emerald-500 bg-emerald-500/10' }
+const ACTION_MAP: Record<string, { label: string, icon: string, color: string, group: string }> = {
+  USER_REGISTERED: { label: 'New User Registered', icon: 'person_add', color: 'text-blue-500 bg-blue-500/10', group: 'user' },
+  USER_LOGIN: { label: 'User Logged In', icon: 'login', color: 'text-slate-500 bg-slate-500/10', group: 'user' },
+  USER_STATUS_CHANGED: { label: 'User Status Changed', icon: 'manage_accounts', color: 'text-amber-500 bg-amber-500/10', group: 'user' },
+  USER_ROLE_CHANGED: { label: 'User Role Changed', icon: 'admin_panel_settings', color: 'text-indigo-500 bg-indigo-500/10', group: 'user' },
+  USER_PLAN_CHANGED: { label: 'User Plan Changed', icon: 'workspace_premium', color: 'text-indigo-500 bg-indigo-500/10', group: 'user' },
+  RELEASE_CREATED: { label: 'Release Created', icon: 'add_circle', color: 'text-purple-500 bg-purple-500/10', group: 'release' },
+  RELEASE_SUBMITTED: { label: 'Release Submitted', icon: 'upload', color: 'text-purple-500 bg-purple-500/10', group: 'release' },
+  RELEASE_APPROVED: { label: 'Release Approved', icon: 'check_circle', color: 'text-emerald-500 bg-emerald-500/10', group: 'release' },
+  RELEASE_REJECTED: { label: 'Release Rejected', icon: 'cancel', color: 'text-rose-500 bg-rose-500/10', group: 'release' },
+  PAYOUT_BULK_COMPLETED: { label: 'Payout Marked Completed', icon: 'payments', color: 'text-emerald-500 bg-emerald-500/10', group: 'payout' },
+  PAYOUT_BULK_CREATED: { label: 'Payout Record Created', icon: 'payments', color: 'text-emerald-500 bg-emerald-500/10', group: 'payout' },
+  PAYOUT_BULK_IMPORT: { label: 'Bulk Payout Import', icon: 'upload_file', color: 'text-emerald-500 bg-emerald-500/10', group: 'payout' },
+  SETTING_CHANGED: { label: 'Setting Updated', icon: 'settings', color: 'text-slate-500 bg-slate-500/10', group: 'settings' },
+  SETTING_UPDATED: { label: 'Setting Updated', icon: 'settings', color: 'text-slate-500 bg-slate-500/10', group: 'settings' },
 };
 
-const getActionConfig = (action: string) => ACTION_MAP[action] || { label: action, icon: 'info', color: 'text-slate-500 bg-slate-500/10' };
+const getActionConfig = (action: string) => ACTION_MAP[action] || { label: action, icon: 'info', color: 'text-slate-500 bg-slate-500/10', group: 'other' };
 
 const AuditLog: React.FC = () => {
-  const [logs, setLogs] = useState(MOCK_AUDIT_LOGS);
+  const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [error, setError] = useState('');
+
   const [actionFilter, setActionFilter] = useState('All');
   const [userSearch, setUserSearch] = useState('');
-  
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const res = await fetch('/api/admin/audit-logs', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
-        if (res.ok) {
-          const json = await res.json();
-          setLogs(json);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLogs();
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await AdminService.getAuditLogs({ limit: 100 } as any);
+      setLogs(res?.logs || []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load audit logs.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+
   const filteredLogs = logs.filter(log => {
-    const matchesUser = log.user.name.toLowerCase().includes(userSearch.toLowerCase());
-    
+    const matchesUser = (log.user?.name || 'System').toLowerCase().includes(userSearch.toLowerCase());
+
     let matchesAction = true;
     if (actionFilter !== 'All') {
-      if (actionFilter === 'User Actions') matchesAction = ['USER_REGISTERED', 'USER_LOGIN', 'PASSWORD_CHANGED', 'USER_STATUS_CHANGED', 'USER_ROLE_CHANGED'].includes(log.action);
-      else if (actionFilter === 'Release Actions') matchesAction = ['RELEASE_CREATED', 'RELEASE_SUBMITTED', 'RELEASE_APPROVED', 'RELEASE_REJECTED'].includes(log.action);
-      else if (actionFilter === 'Payout Actions') matchesAction = ['PAYOUT_COMPLETED', 'ATH_MOVIL_PAYMENT_INITIATED'].includes(log.action);
-      else if (actionFilter === 'Settings') matchesAction = ['SETTING_UPDATED'].includes(log.action);
+      matchesAction = getActionConfig(log.action).group === actionFilter;
     }
 
     return matchesUser && matchesAction;
@@ -114,35 +64,36 @@ const AuditLog: React.FC = () => {
         </div>
       </header>
 
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={fetchLogs} className="font-bold underline">Retry</button>
+        </div>
+      )}
+
       {/* Filters Row */}
       <div className="bg-white dark:bg-card-dark p-4 rounded-xl border border-slate-200 dark:border-dark-800 shadow-sm flex flex-wrap gap-4">
-        <select 
+        <select
           value={actionFilter}
           onChange={(e) => setActionFilter(e.target.value)}
           className="px-4 py-2 bg-slate-50 dark:bg-dark-900 border border-slate-200 dark:border-dark-800 rounded-lg text-sm font-medium focus:outline-none focus:border-brand-500 flex-1 min-w-[200px]"
         >
           <option value="All">All Actions</option>
-          <option value="User Actions">User Actions</option>
-          <option value="Release Actions">Release Actions</option>
-          <option value="Payout Actions">Payout Actions</option>
-          <option value="Settings">Settings</option>
+          <option value="user">User Actions</option>
+          <option value="release">Release Actions</option>
+          <option value="payout">Payout Actions</option>
+          <option value="settings">Settings</option>
         </select>
 
         <div className="relative flex-1 min-w-[200px]">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
-          <input 
-            type="text" 
-            placeholder="Search by user name..." 
+          <input
+            type="text"
+            placeholder="Search by user name..."
             value={userSearch}
             onChange={(e) => setUserSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-dark-900 border border-slate-200 dark:border-dark-800 rounded-lg text-sm focus:outline-none focus:border-brand-500"
           />
-        </div>
-
-        <div className="flex items-center gap-2 flex-1 min-w-[280px]">
-          <input type="date" className="w-full px-3 py-2 bg-slate-50 dark:bg-dark-900 border border-slate-200 dark:border-dark-800 rounded-lg text-sm text-slate-500 focus:outline-none focus:border-brand-500" />
-          <span className="text-slate-400">to</span>
-          <input type="date" className="w-full px-3 py-2 bg-slate-50 dark:bg-dark-900 border border-slate-200 dark:border-dark-800 rounded-lg text-sm text-slate-500 focus:outline-none focus:border-brand-500" />
         </div>
       </div>
 
@@ -161,23 +112,28 @@ const AuditLog: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-dark-800">
-              {filteredLogs.map(log => {
+              {loading && (
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-slate-400">Loading audit logs...</td></tr>
+              )}
+              {!loading && filteredLogs.map(log => {
                 const config = getActionConfig(log.action);
-                const isSystem = log.user.name === 'System';
+                const userName = log.user?.name || 'System';
+                const isSystem = userName === 'System';
                 const isExpanded = expandedRow === log.id;
-                
+                const initials = userName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+
                 return (
                   <React.Fragment key={log.id}>
                     <tr className="hover:bg-slate-50 dark:hover:bg-dark-900/50 transition-colors cursor-pointer" onClick={() => setExpandedRow(isExpanded ? null : log.id)}>
                       <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                        {log.timestamp}
+                        {log.createdAt ? new Date(log.createdAt).toLocaleString('en-US') : '—'}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isSystem ? 'bg-slate-800 text-slate-300' : 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400'}`}>
-                            {isSystem ? <span className="material-symbols-outlined text-[16px]">smart_toy</span> : log.user.avatar}
+                            {isSystem ? <span className="material-symbols-outlined text-[16px]">smart_toy</span> : initials}
                           </div>
-                          <span className="font-bold text-sm text-slate-900 dark:text-white">{log.user.name}</span>
+                          <span className="font-bold text-sm text-slate-900 dark:text-white">{userName}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -190,12 +146,12 @@ const AuditLog: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{log.entity.type}</span>
-                          <span className="text-sm font-medium text-brand-500 cursor-pointer hover:underline">{log.entity.id}</span>
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{log.entityType || '—'}</span>
+                          <span className="text-sm font-medium text-brand-500 truncate max-w-[160px]">{log.entityId || '—'}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-mono text-xs text-slate-500 bg-slate-100 dark:bg-dark-900 px-2 py-1 rounded">{log.ip}</span>
+                        <span className="font-mono text-xs text-slate-500 bg-slate-100 dark:bg-dark-900 px-2 py-1 rounded">{log.ipAddress || '—'}</span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1">
@@ -209,7 +165,7 @@ const AuditLog: React.FC = () => {
                           <div className="p-6">
                             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Event Details Payload</h4>
                             <pre className="bg-slate-900 text-slate-300 p-4 rounded-xl text-xs font-mono overflow-x-auto shadow-inner">
-                              {JSON.stringify(log.details, null, 2)}
+                              {JSON.stringify(log.newValues ?? log.oldValues ?? {}, null, 2)}
                             </pre>
                           </div>
                         </td>
@@ -220,7 +176,7 @@ const AuditLog: React.FC = () => {
               })}
             </tbody>
           </table>
-          {filteredLogs.length === 0 && (
+          {!loading && filteredLogs.length === 0 && (
             <div className="p-8 text-center text-slate-500 dark:text-slate-400">
               <span className="material-symbols-outlined text-4xl mb-2 opacity-50">history_toggle_off</span>
               <p>No audit logs found matching your criteria.</p>
