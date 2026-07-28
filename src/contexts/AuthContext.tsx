@@ -1,32 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
-
-// Types
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'ARTIST' | 'LABEL' | 'ADMIN' | 'SUPER_ADMIN';
-  status: string;
-  avatarUrl: string | null;
-  subscription?: {
-    plan: string;
-    commissionRate: number;
-    isActive: boolean;
-    expiresAt: string | null;
-  };
-  artistProfiles?: Array<{
-    id: string;
-    name: string;
-    avatarUrl: string | null;
-    isVerified: boolean;
-  }>;
-  wallet?: {
-    availableBalance: number;
-    pendingBalance: number;
-    lifetimeEarnings: number;
-  };
-}
+import type { User } from '../types/api';
 
 interface AuthContextType {
   user: User | null;

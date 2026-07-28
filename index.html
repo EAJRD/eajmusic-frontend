@@ -7,48 +7,12 @@
   <title>EAJMUSIC Platform</title>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#000000">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api-api.eajmusic.com; img-src 'self' data: https:; script-src 'self';">
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            // Alias for 'brand' used across marketing/newer dashboard pages —
-            // kept as a single value (not a shade scale) since that's how it's
-            // consumed everywhere (bg-primary, text-primary, from-primary, etc).
-            primary: '#2563eb',
-            brand: {
-              50: '#eff6ff',
-              100: '#dbeafe',
-              500: '#3b82f6',
-              600: '#2563eb',
-              900: '#1e3a8a',
-              950: '#172554',
-            },
-            dark: {
-              800: '#1f2937',
-              900: '#111827',
-              950: '#030712',
-            },
-            background: {
-              light: '#f8fafc', // slate-50
-              dark: '#030712',  // dark-950
-            },
-            card: {
-              dark: '#111827',  // dark-900
-            },
-            input: {
-              dark: '#1f2937',  // dark-800
-            }
-          }
-        }
-      }
-    }
-  </script>
+
 </head>
 
 <body

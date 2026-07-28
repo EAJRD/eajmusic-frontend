@@ -2,35 +2,20 @@
 logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
-*.local
 
-# Environment files - never commit real secrets, only .env.example
-# Exception: .env.production only holds the PUBLIC API URL (no secrets) so that
-# any build pipeline (e.g. Hostinger auto-deploy from GitHub) bakes the right
-# backend URL into the Vite bundle even without manual env var configuration.
+# Environment files
 .env
-.env.*
-!.env.example
-!.env.production
-server/.env
-server/.env.*
-!server/.env.example
+.env.local
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
+# Editor
+.vscode/
 .idea
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?

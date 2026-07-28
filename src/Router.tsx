@@ -1,8 +1,8 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute, AdminRoute, ArtistRoute, PublicOnlyRoute } from './components/ProtectedRoute';
-import { APP_MODE, goToApp } from './utils/subdomain';
+import { APP_MODE } from './utils/subdomain';
 
 // Lazy load components for better performance
 const Home = lazy(() => import('../apps/marketing/Home'));
@@ -17,38 +17,6 @@ const ForgotPassword = lazy(() => import('../apps/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('../apps/auth/ResetPassword'));
 const ArtistDashboard = lazy(() => import('../apps/artist/Dashboard'));
 const AdminDashboard = lazy(() => import('../apps/admin/AdminDashboard'));
-
-// The marketing pages predate react-router in this codebase and still expect an
-// `onNavigate(domain)` callback prop instead of <Link>/useNavigate. This adapter
-// bridges that legacy prop to real router navigation (and cross-subdomain jumps
-// for 'artist'/'admin') without having to touch every call site in those pages.
-type MarketingDestination = 'main' | 'artist' | 'admin' | 'login' | 'register' | 'about' | 'support' | 'terms' | 'privacy' | 'careers';
-
-function useMarketingNavigate() {
-  const navigate = useNavigate();
-  return (destination: MarketingDestination) => {
-    switch (destination) {
-      case 'main': navigate('/'); break;
-      case 'login': navigate('/login'); break;
-      case 'register': navigate('/register'); break;
-      case 'about': navigate('/about'); break;
-      case 'support': navigate('/support'); break;
-      case 'terms': navigate('/terms'); break;
-      case 'privacy': navigate('/privacy'); break;
-      case 'careers': navigate('/careers'); break;
-      case 'artist': goToApp('artist', '/'); break;
-      case 'admin': goToApp('admin', '/'); break;
-      default: navigate('/');
-    }
-  };
-}
-
-const HomeRoute: React.FC = () => <Home onNavigate={useMarketingNavigate()} />;
-const AboutUsRoute: React.FC = () => <AboutUs onNavigate={useMarketingNavigate()} />;
-const CareersRoute: React.FC = () => <Careers onNavigate={useMarketingNavigate()} />;
-const PrivacyPolicyRoute: React.FC = () => <PrivacyPolicy onNavigate={useMarketingNavigate()} />;
-const TermsOfServiceRoute: React.FC = () => <TermsOfService onNavigate={useMarketingNavigate()} />;
-const MarketingSupportRoute: React.FC = () => <MarketingSupport onNavigate={useMarketingNavigate()} />;
 
 // Loading fallback
 const PageLoader: React.FC = () => (
@@ -115,12 +83,12 @@ const AdminAppRoutes: React.FC = () => (
 // eajmusic.com (and local dev without ?app=) — marketing site + path-based apps
 const MainAppRoutes: React.FC = () => (
   <Routes>
-    <Route path="/" element={<HomeRoute />} />
-    <Route path="/about" element={<AboutUsRoute />} />
-    <Route path="/careers" element={<CareersRoute />} />
-    <Route path="/privacy" element={<PrivacyPolicyRoute />} />
-    <Route path="/terms" element={<TermsOfServiceRoute />} />
-    <Route path="/support" element={<MarketingSupportRoute />} />
+    <Route path="/" element={<Home />} />
+    <Route path="/about" element={<AboutUs />} />
+    <Route path="/careers" element={<Careers />} />
+    <Route path="/privacy" element={<PrivacyPolicy />} />
+    <Route path="/terms" element={<TermsOfService />} />
+    <Route path="/support" element={<MarketingSupport />} />
 
     <Route
       path="/login"

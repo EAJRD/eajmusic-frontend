@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../src/services/api';
 
-interface SupportProps {
-    onNavigate: (domain: 'main' | 'artist' | 'admin' | 'login' | 'register') => void;
-}
-
-const Support: React.FC<SupportProps> = ({ onNavigate }) => {
+const Support: React.FC = () => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'faq' | 'contact' | 'ticket'>('faq');
     const [formData, setFormData] = useState({
         name: '',
@@ -92,7 +90,7 @@ const Support: React.FC<SupportProps> = ({ onNavigate }) => {
             {/* Navigation */}
             <nav className="fixed top-0 w-full z-50 glass-nav bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-slate-200 dark:border-white/10 text-slate-900 dark:text-white transition-colors">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('main')}>
+                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
                         <div className="size-8 text-primary">
                             <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path fillRule="evenodd" clipRule="evenodd" d="M47.2426 24L24 47.2426L0.757355 24L24 0.757355L47.2426 24ZM12.2426 21H35.7574L24 9.24264L12.2426 21Z" fill="currentColor"></path>
@@ -102,13 +100,13 @@ const Support: React.FC<SupportProps> = ({ onNavigate }) => {
                     </div>
                     <div className="flex items-center gap-4">
                         <button
-                            onClick={() => onNavigate('login')}
+                            onClick={() => navigate('/login')}
                             className="text-sm font-bold hover:text-primary transition-colors"
                         >
                             Iniciar Sesión
                         </button>
                         <button
-                            onClick={() => onNavigate('register')}
+                            onClick={() => navigate('/register')}
                             className="bg-primary hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-all shadow-lg shadow-primary/20"
                         >
                             Comenzar
@@ -167,7 +165,7 @@ const Support: React.FC<SupportProps> = ({ onNavigate }) => {
                             <h3 className="text-2xl font-black mb-2">Ticket</h3>
                             <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">Para usuarios registrados</p>
                             <button
-                                onClick={() => onNavigate('login')}
+                                onClick={() => navigate('/login')}
                                 className="bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white px-6 py-3 rounded-lg font-bold text-sm hover:bg-slate-300 dark:hover:bg-white/20 transition-all"
                             >
                                 Iniciar Sesión

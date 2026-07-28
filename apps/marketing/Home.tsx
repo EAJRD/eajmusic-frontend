@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { goToApp } from '../../src/utils/subdomain';
 import { api } from '../../src/services/api';
 
-interface HomeProps {
-  onNavigate: (domain: 'main' | 'artist' | 'admin' | 'login' | 'register' | 'about' | 'support' | 'terms' | 'privacy' | 'careers') => void;
-}
-
-const Home: React.FC<HomeProps> = ({ onNavigate }) => {
+const Home: React.FC = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
@@ -50,18 +49,18 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <div className="hidden md:flex items-center gap-10">
             <a href="#features" className="text-sm font-medium hover:text-primary transition-colors">Features</a>
             <a href="#pricing" className="text-sm font-medium hover:text-primary transition-colors">Pricing</a>
-            <button onClick={() => onNavigate('support')} className="text-sm font-medium hover:text-primary transition-colors">Support</button>
-            <button onClick={() => onNavigate('about')} className="text-sm font-medium hover:text-primary transition-colors">About</button>
+            <button onClick={() => navigate('/support')} className="text-sm font-medium hover:text-primary transition-colors">Support</button>
+            <button onClick={() => navigate('/about')} className="text-sm font-medium hover:text-primary transition-colors">About</button>
           </div>
           <div className="flex items-center gap-4">
             <button
-              onClick={() => onNavigate('login')}
+              onClick={() => navigate('/login')}
               className="text-sm font-bold hover:text-primary transition-colors"
             >
               Login
             </button>
             <button
-              onClick={() => onNavigate('register')}
+              onClick={() => navigate('/register')}
               className="bg-primary hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-all shadow-lg shadow-primary/20"
             >
               Get Started
@@ -89,7 +88,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </p>
             <div className="flex flex-wrap gap-4">
               <button
-                onClick={() => onNavigate('register')}
+                onClick={() => navigate('/register')}
                 className="bg-primary hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-base font-bold transition-all shadow-xl shadow-primary/30"
               >
                 Get Started Now
@@ -205,7 +204,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 <li className="flex items-center gap-3 text-sm text-slate-600"><span className="material-symbols-outlined text-lg">cancel</span> Smart Links</li>
               </ul>
               <button
-                onClick={() => onNavigate('register')}
+                onClick={() => navigate('/register')}
                 className="w-full py-4 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 font-bold transition-all text-slate-900 dark:text-white"
               >
                 Get Started
@@ -227,7 +226,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 <li className="flex items-center gap-3 text-sm"><span className="material-symbols-outlined text-primary text-lg">check_circle</span> Custom Release Dates</li>
               </ul>
               <button
-                onClick={() => onNavigate('register')}
+                onClick={() => navigate('/register')}
                 className="w-full py-4 rounded-xl bg-primary hover:bg-blue-700 text-white font-bold transition-all"
               >
                 Select Plan
@@ -248,7 +247,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 <li className="flex items-center gap-3 text-sm"><span className="material-symbols-outlined text-primary text-lg">check_circle</span> Royalty Splitting</li>
               </ul>
               <button
-                onClick={() => onNavigate('register')}
+                onClick={() => navigate('/register')}
                 className="w-full py-4 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 font-bold transition-all text-slate-900 dark:text-white"
               >
                 Select Plan
@@ -324,7 +323,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight">Ready to Take Your Music Career to the Next Level?</h2>
           <p className="text-xl opacity-90 mb-10">Join thousands of artists who trust EAJMUSIC with their global distribution.</p>
           <button
-            onClick={() => onNavigate('register')}
+            onClick={() => navigate('/register')}
             className="bg-white text-primary px-10 py-5 rounded-xl text-lg font-bold hover:bg-slate-100 transition-all shadow-2xl"
           >
             Get Started for Free
@@ -371,10 +370,10 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <div>
             <h4 className="font-bold mb-6">Company</h4>
             <ul className="flex flex-col gap-4 text-sm text-slate-500 dark:text-slate-400">
-              <li><button onClick={() => onNavigate('about')} className="hover:text-primary transition-colors">About Us</button></li>
-              <li><button onClick={() => onNavigate('careers')} className="hover:text-primary transition-colors">Careers</button></li>
-              <li><button onClick={() => onNavigate('privacy')} className="hover:text-primary transition-colors">Privacy Policy</button></li>
-              <li><button onClick={() => onNavigate('terms')} className="hover:text-primary transition-colors">Terms of Service</button></li>
+              <li><button onClick={() => navigate('/about')} className="hover:text-primary transition-colors">About Us</button></li>
+              <li><button onClick={() => navigate('/careers')} className="hover:text-primary transition-colors">Careers</button></li>
+              <li><button onClick={() => navigate('/privacy')} className="hover:text-primary transition-colors">Privacy Policy</button></li>
+              <li><button onClick={() => navigate('/terms')} className="hover:text-primary transition-colors">Terms of Service</button></li>
             </ul>
           </div>
           <div>

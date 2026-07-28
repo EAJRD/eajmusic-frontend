@@ -229,189 +229,199 @@ export const api = {
 // SERVICE MODULES
 // ===========================================
 
+import type {
+  AuthResponse,
+  User,
+  Release,
+  Wallet,
+  ArtistStats,
+  AdminStats,
+  SupportTicket,
+  Payout,
+  Announcement,
+  PaginatedResponse,
+} from '../types/api';
+
 // Auth Service
 export const AuthService = {
   login: (email: string, password: string, rememberMe?: boolean) =>
-    api.post<any>('/auth/login', { email, password, rememberMe }),
+    api.post<AuthResponse & { accessToken: string; refreshToken: string; user: User }>('/auth/login', { email, password, rememberMe }),
 
   register: (name: string, email: string, password: string, accountType?: string) =>
-    api.post<any>('/auth/register', { name, email, password, accountType }),
+    api.post<AuthResponse & { accessToken: string; refreshToken: string; user: User }>('/auth/register', { name, email, password, accountType }),
 
-  logout: () => api.post<any>('/auth/logout', {}),
+  logout: () => api.post<{ success: boolean }>('/auth/logout', {}),
 
-  me: () => api.get<any>('/auth/me'),
+  me: () => api.get<AuthResponse & { user: User }>('/auth/me'),
 
-  updateProfile: (data: any) => api.patch<any>('/auth/profile', data),
+  updateProfile: (data: Partial<Pick<User, 'name' | 'avatarUrl'>>) =>
+    api.patch<User>('/auth/profile', data),
 
   changePassword: (currentPassword: string, newPassword: string, confirmPassword: string) =>
-    api.post<any>('/auth/change-password', { currentPassword, newPassword, confirmPassword }),
+    api.post<{ success: boolean; message: string }>('/auth/change-password', { currentPassword, newPassword, confirmPassword }),
 
-  refresh: (refreshToken: string) => api.post<any>('/auth/refresh', { refreshToken }),
+  refresh: (refreshToken: string) =>
+    api.post<{ accessToken: string; refreshToken: string }>('/auth/refresh', { refreshToken }),
 
-  forgotPassword: (email: string) => api.post<any>('/auth/forgot-password', { email }),
+  forgotPassword: (email: string) =>
+    api.post<{ success: boolean; message: string }>('/auth/forgot-password', { email }),
 
   resetPassword: (token: string, newPassword: string) =>
-    api.post<any>('/auth/reset-password', { token, newPassword }),
+    api.post<{ success: boolean; message: string }>('/auth/reset-password', { token, newPassword }),
 };
 
 // Artist Service
 export const ArtistService = {
-  // Stats
-  getStats: () => api.get<any>('/artist/stats'),
+  getStats: () => api.get<ArtistStats>('/artist/stats'),
 
-  // Releases
   getReleases: (params?: { status?: string; page?: number; limit?: number }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return api.get<any>(`/artist/releases${query ? `?${query}` : ''}`);
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return api.get<PaginatedResponse<Release>>(`/artist/releases${query ? `?${query}` : ''}`);
   },
 
-  getRelease: (id: string) => api.get<any>(`/artist/releases/${id}`),
+  getRelease: (id: string) => api.get<Release>(`/artist/releases/${id}`),
 
-  createRelease: (data: any) => api.post<any>('/artist/releases', data),
+  createRelease: (data: Partial<Release>) => api.post<Release>('/artist/releases', data),
 
-  updateRelease: (id: string, data: any) => api.patch<any>(`/artist/releases/${id}`, data),
+  updateRelease: (id: string, data: Partial<Release>) => api.patch<Release>(`/artist/releases/${id}`, data),
 
   submitRelease: (id: string) =>
-    api.post<any>(`/artist/releases/${id}/submit`, { agreedToTerms: true }),
+    api.post<{ success: boolean; message: string }>(`/artist/releases/${id}/submit`, { agreedToTerms: true }),
 
-  deleteRelease: (id: string) => api.delete<any>(`/artist/releases/${id}`),
+  deleteRelease: (id: string) => api.delete<{ success: boolean }>(`/artist/releases/${id}`),
 
-  // Artist Profiles
-  getProfiles: () => api.get<any>('/artist/profiles'),
+  getProfiles: () => api.get<Array<{ id: string; name: string; avatarUrl: string | null; isVerified: boolean }>>('/artist/profiles'),
 
-  createProfile: (data: any) => api.post<any>('/artist/profiles', data),
+  createProfile: (data: { name: string; bio?: string }) =>
+    api.post<{ id: string; name: string }>('/artist/profiles', data),
 
-  updateProfile: (id: string, data: any) => api.patch<any>(`/artist/profiles/${id}`, data),
+  updateProfile: (id: string, data: Partial<{ name: string; bio: string; avatarUrl: string }>) =>
+    api.patch<{ success: boolean }>(`/artist/profiles/${id}`, data),
 
-  // Analytics
   getAnalytics: (period?: string) =>
-    api.get<any>(`/artist/analytics/overview${period ? `?period=${period}` : ''}`),
+    api.get<{ streams: number; revenue: number; topCountries: Array<{ country: string; streams: number }> }>(
+      `/artist/analytics/overview${period ? `?period=${period}` : ''}`
+    ),
 
-  // Wallet
-  getWallet: () => api.get<any>('/artist/wallet'),
+  getWallet: () => api.get<Wallet>('/artist/wallet'),
 
-  requestPayout: (amount: number, method: string, methodDetails: any) =>
-    api.post<any>('/artist/wallet/request-payout', { amount, method, methodDetails }),
+  requestPayout: (amount: number, method: string, methodDetails: { accountNumber?: string; email?: string; phone?: string }) =>
+    api.post<{ success: boolean; payoutId: string }>('/artist/wallet/request-payout', { amount, method, methodDetails }),
 
-  // Support
-  getTickets: () => api.get<any>('/artist/tickets'),
+  getTickets: () => api.get<SupportTicket[]>('/artist/tickets'),
 
   createTicket: (subject: string, category: string, message: string, priority?: string) =>
-    api.post<any>('/artist/tickets', { subject, category, message, priority }),
+    api.post<SupportTicket>('/artist/tickets', { subject, category, message, priority }),
 
   replyToTicket: (ticketId: string, message: string) =>
-    api.post<any>(`/artist/tickets/${ticketId}/reply`, { message }),
+    api.post<{ success: boolean }>(`/artist/tickets/${ticketId}/reply`, { message }),
 };
 
 // Admin Service
 export const AdminService = {
-  // Stats
-  getStats: () => api.get<any>('/admin/stats'),
+  getStats: () => api.get<AdminStats>('/admin/stats'),
 
-  // Users
   getUsers: (params?: { role?: string; status?: string; search?: string; page?: number }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return api.get<any>(`/admin/users${query ? `?${query}` : ''}`);
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return api.get<PaginatedResponse<User>>(`/admin/users${query ? `?${query}` : ''}`);
   },
 
-  getUser: (id: string) => api.get<any>(`/admin/users/${id}`),
+  getUser: (id: string) => api.get<User>(`/admin/users/${id}`),
 
   updateUserStatus: (id: string, status: string) =>
-    api.patch<any>(`/admin/users/${id}/status`, { status }),
+    api.patch<User>(`/admin/users/${id}/status`, { status }),
 
   updateUserRole: (id: string, role: string) =>
-    api.patch<any>(`/admin/users/${id}/role`, { role }),
+    api.patch<User>(`/admin/users/${id}/role`, { role }),
 
   updateUserPlan: (id: string, plan: string) =>
-    api.patch<any>(`/admin/users/${id}/plan`, { plan }),
+    api.patch<User>(`/admin/users/${id}/plan`, { plan }),
 
-  // Releases
   getReleases: (params?: { status?: string; search?: string; page?: number }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return api.get<any>(`/admin/releases${query ? `?${query}` : ''}`);
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return api.get<PaginatedResponse<Release>>(`/admin/releases${query ? `?${query}` : ''}`);
   },
 
-  getPendingReleases: () => api.get<any>('/admin/releases/pending'),
+  getPendingReleases: () => api.get<Release[]>('/admin/releases/pending'),
 
-  getRelease: (id: string) => api.get<any>(`/admin/releases/${id}`),
+  getRelease: (id: string) => api.get<Release>(`/admin/releases/${id}`),
 
   reviewRelease: (id: string, action: 'APPROVE' | 'REJECT', reason?: string) =>
-    api.post<any>(`/admin/releases/${id}/review`, { action, reason }),
+    api.post<{ success: boolean; message: string }>(`/admin/releases/${id}/review`, { action, reason }),
 
-  // Takedowns
-  getTakedowns: () => api.get<any>('/admin/takedowns'),
+  getTakedowns: () => api.get<Array<{ id: string; releaseId: string; reason: string; status: string; createdAt: string }>>('/admin/takedowns'),
 
   resolveTakedown: (id: string, action: string, resolution: string) =>
-    api.post<any>(`/admin/takedowns/${id}/resolve`, { action, resolution }),
+    api.post<{ success: boolean }>(`/admin/takedowns/${id}/resolve`, { action, resolution }),
 
-  // Payouts
   getPayouts: (params?: { status?: string; page?: number }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return api.get<any>(`/admin/payouts${query ? `?${query}` : ''}`);
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return api.get<PaginatedResponse<Payout>>(`/admin/payouts${query ? `?${query}` : ''}`);
   },
 
   processPayout: (id: string, action: 'COMPLETE' | 'FAIL', transactionId?: string, failureReason?: string) =>
-    api.post<any>(`/admin/payouts/${id}/process`, { action, transactionId, failureReason }),
+    api.post<{ success: boolean }>(`/admin/payouts/${id}/process`, { action, transactionId, failureReason }),
 
   bulkCompletePayout: (payouts: Array<{ email: string; amount: number; method: string; transactionId: string }>) =>
-    api.post<any>('/admin/payouts/bulk-complete', { payouts }),
+    api.post<{ success: boolean; processed: number }>('/admin/payouts/bulk-complete', { payouts }),
 
-  // Announcements
-  getAnnouncements: () => api.get<any>('/admin/announcements'),
+  getAnnouncements: () => api.get<Announcement[]>('/admin/announcements'),
 
-  createAnnouncement: (data: any) => api.post<any>('/admin/announcements', data),
+  createAnnouncement: (data: { title: string; content: string; type: string }) =>
+    api.post<Announcement>('/admin/announcements', data),
 
-  updateAnnouncement: (id: string, data: any) => api.patch<any>(`/admin/announcements/${id}`, data),
+  updateAnnouncement: (id: string, data: Partial<Announcement>) =>
+    api.patch<Announcement>(`/admin/announcements/${id}`, data),
 
-  deleteAnnouncement: (id: string) => api.delete<any>(`/admin/announcements/${id}`),
+  deleteAnnouncement: (id: string) => api.delete<{ success: boolean }>(`/admin/announcements/${id}`),
 
-  // Tickets
   getTickets: (params?: { status?: string; page?: number }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return api.get<any>(`/admin/tickets${query ? `?${query}` : ''}`);
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return api.get<PaginatedResponse<SupportTicket>>(`/admin/tickets${query ? `?${query}` : ''}`);
   },
 
-  getTicket: (id: string) => api.get<any>(`/admin/tickets/${id}`),
+  getTicket: (id: string) => api.get<SupportTicket>(`/admin/tickets/${id}`),
 
   replyToTicket: (ticketId: string, message: string, isInternal?: boolean) =>
-    api.post<any>(`/admin/tickets/${ticketId}/reply`, { message, isInternal }),
+    api.post<{ success: boolean }>(`/admin/tickets/${ticketId}/reply`, { message, isInternal }),
 
   updateTicketStatus: (ticketId: string, status: string) =>
-    api.patch<any>(`/admin/tickets/${ticketId}/status`, { status }),
+    api.patch<{ success: boolean }>(`/admin/tickets/${ticketId}/status`, { status }),
 
-  // Settings
-  getSettings: () => api.get<any>('/admin/settings'),
+  getSettings: () => api.get<Record<string, { value: unknown; description: string }>>('/admin/settings'),
 
-  updateSetting: (key: string, value: any, description?: string) =>
-    api.put<any>(`/admin/settings/${key}`, { value, description }),
+  updateSetting: (key: string, value: unknown, description?: string) =>
+    api.put<{ success: boolean }>(`/admin/settings/${key}`, { value, description }),
 
-  // Audit Logs
   getAuditLogs: (params?: { userId?: string; action?: string; page?: number; limit?: number }) => {
-    const query = new URLSearchParams(params as any).toString();
-    return api.get<any>(`/admin/audit-logs${query ? `?${query}` : ''}`);
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return api.get<PaginatedResponse<{ id: string; action: string; userId: string; createdAt: string }>>(
+      `/admin/audit-logs${query ? `?${query}` : ''}`
+    );
   },
 
-  // Finance
-  getFinanceOverview: () => api.get<any>('/admin/finance/overview'),
+  getFinanceOverview: () => api.get<{ totalRevenue: number; pendingPayouts: number; completedPayouts: number; monthlyRevenue: Array<{ month: string; amount: number }> }>('/admin/finance/overview'),
 };
 
 // Upload Service
 export const UploadService = {
   uploadAudio: (file: File, releaseId?: string, trackNumber?: number) =>
-    api.upload('/upload/audio', file, {
+    api.upload<{ url: string; key: string; durationMs: number }>('/upload/audio', file, {
       ...(releaseId && { releaseId }),
       ...(trackNumber !== undefined && { trackNumber: String(trackNumber) }),
     }),
 
-  uploadAudioBatch: (files: File[]) => api.uploadBatch('/upload/audio/batch', files),
+  uploadAudioBatch: (files: File[]) =>
+    api.uploadBatch<Array<{ url: string; key: string; filename: string }>>('/upload/audio/batch', files),
 
   uploadCover: (file: File, releaseId?: string) =>
-    api.upload('/upload/cover', file, releaseId ? { releaseId } : undefined),
+    api.upload<{ url: string; key: string }>('/upload/cover', file, releaseId ? { releaseId } : undefined),
 
-  uploadAvatar: (file: File) => api.upload('/upload/avatar', file),
+  uploadAvatar: (file: File) =>
+    api.upload<{ url: string; key: string }>('/upload/avatar', file),
 
   deleteFile: (type: 'audio' | 'images', filename: string) =>
-    api.delete<any>(`/upload/${type}/${filename}`),
+    api.delete<{ success: boolean }>(`/upload/${type}/${filename}`),
 };
 
 export default api;
