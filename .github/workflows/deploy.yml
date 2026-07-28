@@ -1,0 +1,54 @@
+name: Deploy Frontend to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api-api.eajmusic.com/api' }}
+
+      - name: Deploy to Hostinger via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          password: ${{ secrets.HOSTINGER_PASSWORD }}
+          port: ${{ secrets.HOSTINGER_PORT || '22' }}
+          source: dist/
+          target: ${{ secrets.HOSTINGER_TEMP_DIR }}
+
+      - name: Copy build to all docroots
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          password: ${{ secrets.HOSTINGER_PASSWORD }}
+          port: ${{ secrets.HOSTINGER_PORT || '22' }}
+          script: |
+            set -e
+            SRC="${{ secrets.HOSTINGER_TEMP_DIR }}/dist"
+            cp -r "$SRC"/* "${{ secrets.HOSTINGER_MAIN_DIR }}"
+            cp -r "$SRC"/* "${{ secrets.HOSTINGER_ARTIST_DIR }}"
+            cp -r "$SRC"/* "${{ secrets.HOSTINGER_ADMIN_DIR }}"
+            rm -rf "${{ secrets.HOSTINGER_TEMP_DIR }}"
+            echo "Deployed to all docroots"
