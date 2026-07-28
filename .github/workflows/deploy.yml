@@ -37,9 +37,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git tag -f snapshot 2>/dev/null || true
           gh release delete snapshot --cleanup-tag --yes 2>/dev/null || true
           gh release create snapshot \
+            --target "${{ github.sha }}" \
             --title "Snapshot $(date -u +%Y-%m-%d-%H%M%S)" \
             --notes "Build from ${{ github.sha }}" \
             --prerelease \
