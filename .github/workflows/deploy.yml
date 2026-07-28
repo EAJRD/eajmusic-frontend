@@ -27,28 +27,23 @@ jobs:
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api-api.eajmusic.com/api' }}
 
-      - name: Deploy to Hostinger via SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.HOSTINGER_HOST }}
-          username: ${{ secrets.HOSTINGER_USER }}
-          password: ${{ secrets.HOSTINGER_PASSWORD }}
-          port: ${{ secrets.HOSTINGER_PORT || '22' }}
-          source: dist/
-          target: ${{ secrets.HOSTINGER_TEMP_DIR }}
+      - name: Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
-      - name: Copy build to all docroots
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.HOSTINGER_HOST }}
-          username: ${{ secrets.HOSTINGER_USER }}
-          password: ${{ secrets.HOSTINGER_PASSWORD }}
-          port: ${{ secrets.HOSTINGER_PORT || '22' }}
-          script: |
-            set -e
-            SRC="${{ secrets.HOSTINGER_TEMP_DIR }}/dist"
-            cp -r "$SRC"/* "${{ secrets.HOSTINGER_MAIN_DIR }}"
-            cp -r "$SRC"/* "${{ secrets.HOSTINGER_ARTIST_DIR }}"
-            cp -r "$SRC"/* "${{ secrets.HOSTINGER_ADMIN_DIR }}"
-            rm -rf "${{ secrets.HOSTINGER_TEMP_DIR }}"
-            echo "Deployed to all docroots"
+      - name: Deploy to eajmusic.com
+        run: |
+          lftp -u "${{ secrets.HOSTINGER_USER }},${{ secrets.HOSTINGER_PASSWORD }}" \
+            -e "set ftp:ssl-allow no; mirror -R --verbose dist/ ${{ secrets.HOSTINGER_MAIN_DIR }}; quit" \
+            ${{ secrets.HOSTINGER_HOST }}
+
+      - name: Deploy to artist.eajmusic.com
+        run: |
+          lftp -u "${{ secrets.HOSTINGER_USER }},${{ secrets.HOSTINGER_PASSWORD }}" \
+            -e "set ftp:ssl-allow no; mirror -R --verbose dist/ ${{ secrets.HOSTINGER_ARTIST_DIR }}; quit" \
+            ${{ secrets.HOSTINGER_HOST }}
+
+      - name: Deploy to eaj.eajmusic.com
+        run: |
+          lftp -u "${{ secrets.HOSTINGER_USER }},${{ secrets.HOSTINGER_PASSWORD }}" \
+            -e "set ftp:ssl-allow no; mirror -R --verbose dist/ ${{ secrets.HOSTINGER_ADMIN_DIR }}; quit" \
+            ${{ secrets.HOSTINGER_HOST }}
