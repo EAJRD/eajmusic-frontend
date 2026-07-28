@@ -5,8 +5,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build-and-deploy:
+  build-and-publish:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,23 +30,17 @@ jobs:
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api-api.eajmusic.com/api' }}
 
-      - name: Install lftp
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+      - name: Package build
+        run: tar -czf /tmp/eajmusic-build.tar.gz -C dist .
 
-      - name: Deploy to eajmusic.com
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          lftp -u "${{ secrets.HOSTINGER_USER }},${{ secrets.HOSTINGER_PASSWORD }}" \
-            -e "set ftp:ssl-allow no; mirror -R --verbose dist/ ${{ secrets.HOSTINGER_MAIN_DIR }}; quit" \
-            ${{ secrets.HOSTINGER_HOST }}
-
-      - name: Deploy to artist.eajmusic.com
-        run: |
-          lftp -u "${{ secrets.HOSTINGER_USER }},${{ secrets.HOSTINGER_PASSWORD }}" \
-            -e "set ftp:ssl-allow no; mirror -R --verbose dist/ ${{ secrets.HOSTINGER_ARTIST_DIR }}; quit" \
-            ${{ secrets.HOSTINGER_HOST }}
-
-      - name: Deploy to eaj.eajmusic.com
-        run: |
-          lftp -u "${{ secrets.HOSTINGER_USER }},${{ secrets.HOSTINGER_PASSWORD }}" \
-            -e "set ftp:ssl-allow no; mirror -R --verbose dist/ ${{ secrets.HOSTINGER_ADMIN_DIR }}; quit" \
-            ${{ secrets.HOSTINGER_HOST }}
+          git tag -f snapshot 2>/dev/null || true
+          gh release delete snapshot --cleanup-tag --yes 2>/dev/null || true
+          gh release create snapshot \
+            --title "Snapshot $(date -u +%Y-%m-%d-%H%M%S)" \
+            --notes "Build from ${{ github.sha }}" \
+            --prerelease \
+            /tmp/eajmusic-build.tar.gz
