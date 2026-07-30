@@ -335,12 +335,25 @@ export const AuthService = {
     api.post<{ success: boolean; message: string }>('/auth/reset-password', { token, newPassword }),
 };
 
+// `new URLSearchParams({ role: undefined })` stringifies missing optional
+// fields as the literal string "undefined" (e.g. `?role=undefined`), which
+// then reaches the backend as a truthy filter value instead of "no filter" —
+// this actually broke GET /admin/users in production. Strip undefined/null/''
+// before building the query string.
+const buildQuery = (params?: Record<string, unknown>): string => {
+  if (!params) return '';
+  const entries = Object.entries(params).filter(
+    ([, value]) => value !== undefined && value !== null && value !== ''
+  ) as [string, string][];
+  return new URLSearchParams(entries).toString();
+};
+
 // Artist Service
 export const ArtistService = {
   getStats: () => api.get<ArtistStats>('/artist/stats'),
 
   getReleases: (params?: { status?: string; page?: number; limit?: number }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
+    const query = buildQuery(params);
     return api.get<PaginatedResponse<Release>>(`/artist/releases${query ? `?${query}` : ''}`);
   },
 
@@ -387,7 +400,7 @@ export const AdminService = {
   getStats: () => api.get<AdminStats>('/admin/stats'),
 
   getUsers: (params?: { role?: string; status?: string; search?: string; page?: number }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
+    const query = buildQuery(params);
     return api.get<PaginatedResponse<User>>(`/admin/users${query ? `?${query}` : ''}`);
   },
 
@@ -409,7 +422,7 @@ export const AdminService = {
     api.patch<User>(`/admin/users/${id}/plan`, { plan }),
 
   getReleases: (params?: { status?: string; search?: string; page?: number }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
+    const query = buildQuery(params);
     return api.get<PaginatedResponse<Release>>(`/admin/releases${query ? `?${query}` : ''}`);
   },
 
@@ -426,7 +439,7 @@ export const AdminService = {
     api.post<{ success: boolean }>(`/admin/takedowns/${id}/resolve`, { action, resolution }),
 
   getPayouts: (params?: { status?: string; page?: number }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
+    const query = buildQuery(params);
     return api.get<PaginatedResponse<Payout>>(`/admin/payouts${query ? `?${query}` : ''}`);
   },
 
@@ -447,7 +460,7 @@ export const AdminService = {
   deleteAnnouncement: (id: string) => api.delete<{ success: boolean }>(`/admin/announcements/${id}`),
 
   getTickets: (params?: { status?: string; page?: number }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
+    const query = buildQuery(params);
     return api.get<PaginatedResponse<SupportTicket>>(`/admin/tickets${query ? `?${query}` : ''}`);
   },
 
@@ -465,7 +478,7 @@ export const AdminService = {
     api.put<{ success: boolean }>(`/admin/settings/${key}`, { value, description }),
 
   getAuditLogs: (params?: { userId?: string; action?: string; page?: number; limit?: number }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
+    const query = buildQuery(params);
     return api.get<PaginatedResponse<{ id: string; action: string; userId: string; createdAt: string }>>(
       `/admin/audit-logs${query ? `?${query}` : ''}`
     );
@@ -476,7 +489,7 @@ export const AdminService = {
   // Testimonial moderation — requires the `testimonials:moderate` permission
   // (ADMIN and SUPER_ADMIN have it by default).
   getTestimonials: (params?: { status?: string; page?: number; limit?: number }) => {
-    const query = new URLSearchParams(params as Record<string, string>).toString();
+    const query = buildQuery(params);
     return api.get<PaginatedResponse<Testimonial>>(`/admin/testimonials${query ? `?${query}` : ''}`);
   },
 
