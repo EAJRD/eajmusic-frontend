@@ -1,22 +1,50 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute, AdminRoute, ArtistRoute, PublicOnlyRoute } from './components/ProtectedRoute';
 import { APP_MODE } from './utils/subdomain';
 
-// Lazy load components for better performance
-const Home = lazy(() => import('../apps/marketing/Home'));
-const AboutUs = lazy(() => import('../apps/marketing/AboutUs'));
-const Careers = lazy(() => import('../apps/marketing/Careers'));
-const PrivacyPolicy = lazy(() => import('../apps/marketing/PrivacyPolicy'));
-const TermsOfService = lazy(() => import('../apps/marketing/TermsOfService'));
-const MarketingSupport = lazy(() => import('../apps/marketing/Support'));
+// ===========================================
+// Build-time app-mode gating for code-splitting
+// ===========================================
+// `VITE_APP_MODE` is a build-time env var (see package.json's build:main /
+// build:artist / build:eaj scripts). Vite statically replaces
+// `import.meta.env.VITE_APP_MODE` with a literal string before Rollup builds
+// the module graph, so the ternaries below fold to `null` for the branches
+// that don't apply — which lets Rollup's dead-code elimination drop the
+// unreached `import()` calls (and therefore the target module's whole chunk)
+// entirely from that build's output, instead of merely leaving them
+// unreached-but-present at runtime.
+//
+// When VITE_APP_MODE is unset (plain `npm run dev` / `vite build`), every
+// branch below evaluates to "needed", so all three apps stay lazy-loadable —
+// preserving today's runtime hostname/?app= switching for local dev.
+const BUILD_MODE = import.meta.env.VITE_APP_MODE as string | undefined;
+const NEEDS_MAIN = BUILD_MODE === undefined || BUILD_MODE === 'main';
+const NEEDS_ARTIST = NEEDS_MAIN || BUILD_MODE === 'artist';
+const NEEDS_ADMIN = NEEDS_MAIN || BUILD_MODE === 'admin';
+
+// Marketing-only pages — only needed by the "main" (eajmusic.com) build.
+const Home = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/Home')) : null) as any;
+const AboutUs = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/AboutUs')) : null) as any;
+const Careers = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/Careers')) : null) as any;
+const PrivacyPolicy = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/PrivacyPolicy')) : null) as any;
+const TermsOfService = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/TermsOfService')) : null) as any;
+const MarketingSupport = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/Support')) : null) as any;
+const ShareTestimonial = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/ShareTestimonial')) : null) as any;
+
+// Shared auth pages — needed by all three apps (main, artist, admin).
 const Login = lazy(() => import('../apps/auth/Login'));
 const Register = lazy(() => import('../apps/auth/Register'));
 const ForgotPassword = lazy(() => import('../apps/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('../apps/auth/ResetPassword'));
-const ArtistDashboard = lazy(() => import('../apps/artist/Dashboard'));
-const AdminDashboard = lazy(() => import('../apps/admin/AdminDashboard'));
+
+// Artist dashboard — needed by "main" (embeds /dashboard) and the "artist" build.
+const ArtistDashboard = (NEEDS_ARTIST ? lazy(() => import('../apps/artist/Dashboard')) : null) as any;
+
+// Admin dashboard — needed by "main" (embeds /admin) and the "admin"(eaj) build.
+const AdminDashboard = (NEEDS_ADMIN ? lazy(() => import('../apps/admin/AdminDashboard')) : null) as any;
 
 // Loading fallback
 const PageLoader: React.FC = () => (
@@ -89,6 +117,7 @@ const MainAppRoutes: React.FC = () => (
     <Route path="/privacy" element={<PrivacyPolicy />} />
     <Route path="/terms" element={<TermsOfService />} />
     <Route path="/support" element={<MarketingSupport />} />
+    <Route path="/share/:artistId" element={<ShareTestimonial />} />
 
     <Route
       path="/login"
@@ -139,13 +168,15 @@ const MainAppRoutes: React.FC = () => (
 const AppRouter: React.FC = () => {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Suspense fallback={<PageLoader />}>
-          {APP_MODE === 'artist' && <ArtistAppRoutes />}
-          {APP_MODE === 'admin' && <AdminAppRoutes />}
-          {APP_MODE === 'main' && <MainAppRoutes />}
-        </Suspense>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Suspense fallback={<PageLoader />}>
+            {APP_MODE === 'artist' && <ArtistAppRoutes />}
+            {APP_MODE === 'admin' && <AdminAppRoutes />}
+            {APP_MODE === 'main' && <MainAppRoutes />}
+          </Suspense>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 };

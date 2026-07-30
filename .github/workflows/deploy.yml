@@ -25,12 +25,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build (main + artist + eaj)
         run: npm run build
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api-api.eajmusic.com/api' }}
 
       - name: Package build
+        # dist/ now contains three independent builds (main/, artist/, eaj/) —
+        # see package.json's build:main/build:artist/build:eaj scripts.
         run: tar -czf /tmp/eajmusic-build.tar.gz -C dist .
 
       - name: Upload to GitHub Release

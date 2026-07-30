@@ -2,10 +2,15 @@ import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { APP_MODE, goToApp } from '../utils/subdomain';
+import type { UserRole } from '../types/api';
+
+// Employee roles (SUPPORT/REVIEWER/FINANCE) only ever operate inside the
+// internal admin panel (eaj.eajmusic.com), same as ADMIN/SUPER_ADMIN.
+const ADMIN_APP_ROLES: UserRole[] = ['ADMIN', 'SUPER_ADMIN', 'SUPPORT', 'REVIEWER', 'FINANCE'];
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: Array<'ARTIST' | 'LABEL' | 'ADMIN' | 'SUPER_ADMIN'>;
+  allowedRoles?: UserRole[];
   redirectTo?: string;
 }
 
@@ -21,8 +26,8 @@ const LoadingSpinner: React.FC = () => (
 
 // Sends the user to wherever their role actually lives — same-origin path on
 // the unified domain, or a full cross-subdomain redirect on artist./eaj.
-const RoleHomeRedirect: React.FC<{ role: 'ARTIST' | 'LABEL' | 'ADMIN' | 'SUPER_ADMIN' }> = ({ role }) => {
-  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+const RoleHomeRedirect: React.FC<{ role: UserRole }> = ({ role }) => {
+  const isAdmin = ADMIN_APP_ROLES.includes(role);
   const targetMode = isAdmin ? 'admin' : 'artist';
 
   useEffect(() => {
@@ -64,9 +69,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   return <>{children}</>;
 };
 
-// Admin-only route
+// Admin-only route (includes employee roles: SUPPORT/REVIEWER/FINANCE)
 export const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']} redirectTo="/login">
+  <ProtectedRoute allowedRoles={ADMIN_APP_ROLES} redirectTo="/login">
     {children}
   </ProtectedRoute>
 );

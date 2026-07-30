@@ -124,9 +124,18 @@ Construido con las herramientas más modernas para asegurar velocidad, escalabil
 
 ### Build para Producción
 
+El proyecto sirve tres subdominios reales desde tres document roots independientes en Hostinger (`eajmusic.com`, `artist.eajmusic.com`, `eaj.eajmusic.com`), así que `npm run build` genera **tres builds de Vite independientes**, cada uno con su propio `VITE_APP_MODE` inyectado en tiempo de build para que el código de las otras dos apps quede fuera del bundle (tree-shaking real, no solo ruteo en runtime):
+
 ```bash
 npm run build
-# Los archivos estáticos se generarán en la carpeta /dist
+# Equivale a: npm run build:main && npm run build:artist && npm run build:eaj
+#   dist/main/   -> eajmusic.com        (VITE_APP_MODE=main)
+#   dist/artist/ -> artist.eajmusic.com (VITE_APP_MODE=artist)
+#   dist/eaj/    -> eaj.eajmusic.com    (VITE_APP_MODE=admin)
+
+npm run build:main    # solo el sitio de marketing
+npm run build:artist  # solo el dashboard de artistas
+npm run build:eaj     # solo el panel admin (eaj)
 ```
 
 ---

@@ -2,6 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Brand design tokens — single source of truth for theming.
+ *
+ * Values are stored as space-separated RGB components (NOT hex) so Tailwind's
+ * `rgb(var(--x) / <alpha-value>)` opacity trick works (see tailwind.config.js
+ * `withOpacity`). A Super Admin theming feature can repaint the whole app at
+ * runtime by calling e.g.
+ *   document.documentElement.style.setProperty('--color-bioglow', '<r g b>')
+ * without touching any component or rebuilding CSS.
+ *
+ * Palette concept: Puerto Rico's bioluminescent bay + the flamboyán tree.
+ *   --color-ink       near-black navy, primary dark ground
+ *   --color-bioglow   teal accent (replaces the old generic blue primary/brand-600)
+ *   --color-flame     coral-red secondary accent, used sparingly
+ *   --color-reef      light-mode neutral background
+ *
+ * ThemeToggle.tsx toggles dark mode by adding/removing a `dark` class on
+ * <html> (Tailwind `darkMode: 'class'`). `:root` below holds the light-mode
+ * defaults; `.dark` overrides the surface/neutral tokens for dark mode. Since
+ * `:root` and `.dark` both resolve to the same <html> element, source order
+ * makes `.dark` win whenever the class is present — matching how every
+ * `dark:` utility in this app is already gated.
+ */
+:root {
+  /* Core brand tokens (theme-agnostic accents) */
+  --color-ink: 11 15 20;        /* #0B0F14 */
+  --color-bioglow: 47 224 194;  /* #2FE0C2 */
+  --color-flame: 255 90 54;     /* #FF5A36 */
+  --color-reef: 238 242 241;    /* #EEF2F1 */
+
+  /* Surface pair backing the `background.light` / `background.dark` keys */
+  --color-bg-light: 238 242 241; /* reef */
+  --color-bg-dark: 11 15 20;     /* ink */
+
+  /* Neutral dark-surface scale backing `dark.700/800/900/950`, `card.dark`,
+     `input.dark`. These are only ever consumed via `dark:` prefixed utility
+     classes, so these are unused light-mode fallbacks kept for completeness. */
+  --color-dark-700: 202 209 208;
+  --color-dark-800: 214 219 218;
+  --color-dark-900: 226 231 230;
+  --color-dark-950: 238 242 241; /* reef */
+
+  /* Brand accent scale (teal), anchored at 600 = bioglow, backing `brand.*` */
+  --color-brand-50: 230 253 248;
+  --color-brand-100: 204 250 241;
+  --color-brand-200: 153 244 227;
+  --color-brand-400: 82 232 205;
+  --color-brand-500: 60 228 199;
+  --color-brand-600: 47 224 194; /* = bioglow */
+  --color-brand-700: 27 179 154;
+  --color-brand-900: 13 87 76;
+  --color-brand-950: 8 58 51;
+}
+
+.dark {
+  /* Real dark-mode surface values — active whenever <html class="dark">,
+     which is this app's default (see index.html) and the only state these
+     tokens are ever actually rendered in today. */
+  --color-bg-dark: 11 15 20;     /* ink */
+
+  --color-dark-700: 42 54 61;    /* #2A363D */
+  --color-dark-800: 26 36 42;    /* #1A242A */
+  --color-dark-900: 16 22 28;    /* #10161C */
+  --color-dark-950: 11 15 20;    /* #0B0F14 = ink */
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -25,14 +91,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #030712;
+  background: rgb(var(--color-bg-dark));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1f2937;
+  background: rgb(var(--color-dark-800));
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+  background: rgb(var(--color-dark-700));
 }

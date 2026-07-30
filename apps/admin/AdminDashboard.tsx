@@ -12,8 +12,10 @@ import UsersList from './pages/UsersList';
 import AdminSettings from './pages/AdminSettings';
 import FinanceHub from './pages/FinanceHub';
 import AuditLog from './pages/AuditLog';
+import Team from './pages/Team';
+import TestimonialModeration from './pages/TestimonialModeration';
 
-export type AdminTab = 'overview' | 'plans' | 'announcements' | 'tickets' | 'brand' | 'releases' | 'users' | 'settings' | 'finance' | 'audit';
+export type AdminTab = 'overview' | 'plans' | 'announcements' | 'tickets' | 'brand' | 'releases' | 'users' | 'settings' | 'finance' | 'audit' | 'team' | 'testimonials';
 
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
@@ -51,6 +53,10 @@ const AdminDashboard: React.FC = () => {
         return <FinanceHub />;
       case 'audit':
         return <AuditLog />;
+      case 'team':
+        return <Team />;
+      case 'testimonials':
+        return <TestimonialModeration />;
       case 'overview':
       default:
         return <AdminOverview onNavigate={selectTab} />;
@@ -146,6 +152,14 @@ const AdminDashboard: React.FC = () => {
             isActive={activeTab === 'tickets'}
             onClick={() => selectTab('tickets')}
           />
+          {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+            <NavItem
+              icon="reviews"
+              label="Testimonials"
+              isActive={activeTab === 'testimonials'}
+              onClick={() => selectTab('testimonials')}
+            />
+          )}
 
           <p className="px-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 mt-6">System</p>
           <NavItem
@@ -154,6 +168,14 @@ const AdminDashboard: React.FC = () => {
             isActive={activeTab === 'audit'}
             onClick={() => selectTab('audit')}
           />
+          {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+            <NavItem
+              icon="badge"
+              label="Team"
+              isActive={activeTab === 'team'}
+              onClick={() => selectTab('team')}
+            />
+          )}
           <NavItem
             icon="palette"
             label="Whitelabel / Brand"

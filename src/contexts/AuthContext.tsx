@@ -46,15 +46,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check authentication status on mount
+  // Check authentication status on mount.
+  // Auth is now cookie-based (httpOnly eajmusic_token, sent automatically by
+  // the browser), so we can no longer gate this on a localStorage token -
+  // the cookie may exist even with an empty/cleared localStorage, and vice
+  // versa. Always ask the backend via /auth/me; it's the source of truth.
   useEffect(() => {
     const checkAuth = async () => {
-      const token = getStoredToken();
-      if (!token) {
-        setIsLoading(false);
-        return;
-      }
-
       try {
         const response = await api.get<AuthResponse>('/auth/me');
         if (response && response.user) {
@@ -77,13 +75,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await api.post<AuthResponse>('/auth/login', { email, password, rememberMe });
 
-      if (response && response.accessToken && response.refreshToken) {
-        setStoredTokens(response.accessToken, response.refreshToken);
-        if (response.user) setUser(response.user);
+      // Cookies set by the backend response are what authenticate subsequent
+      // requests now. accessToken/refreshToken in the body are only stored
+      // as a harmless fallback; success is determined by getting a user back.
+      if (response && response.user) {
+        if (response.accessToken && response.refreshToken) {
+          setStoredTokens(response.accessToken, response.refreshToken);
+        }
+        setUser(response.user);
         return { success: true };
       }
 
-      return { success: false, error: response?.error || 'Login failed' };
+      return { success: false, error: response?.error || response?.message || 'Login failed' };
     } catch (error: any) {
       return { success: false, error: error.message || 'Login failed' };
     }
@@ -94,13 +97,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await api.post<AuthResponse>('/auth/register', { name, email, password, accountType });
 
-      if (response && response.accessToken && response.refreshToken) {
-        setStoredTokens(response.accessToken, response.refreshToken);
-        if (response.user) setUser(response.user);
+      // Same as login: the cookie is the real auth mechanism, the body's
+      // tokens are just a fallback.
+      if (response && response.user) {
+        if (response.accessToken && response.refreshToken) {
+          setStoredTokens(response.accessToken, response.refreshToken);
+        }
+        setUser(response.user);
         return { success: true };
       }
 
-      return { success: false, error: response?.error || 'Registration failed' };
+      return { success: false, error: response?.error || response?.message || 'Registration failed' };
     } catch (error: any) {
       return { success: false, error: error.message || 'Registration failed' };
     }

@@ -2,9 +2,19 @@
 // EAJMUSIC API SERVICE
 // ===========================================
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
-// Token management
+// ===========================================
+// AUTH: cookie-based (primary) + localStorage (fallback)
+// ===========================================
+// Auth is now carried by httpOnly cookies (eajmusic_token / eajmusic_refresh)
+// set by the backend and scoped to `.eajmusic.com` in production, so the
+// browser attaches them automatically on requests to any subdomain as long
+// as `credentials: 'include'` is set. localStorage tokens are kept ONLY as a
+// harmless fallback for the `Authorization: Bearer` header (useful during
+// rollback / for tooling) - they are no longer the source of truth.
+
+// Token management (fallback only)
 const getToken = (): string | null => localStorage.getItem('eajmusic_token');
 const getRefreshToken = (): string | null => localStorage.getItem('eajmusic_refresh_token');
 
@@ -17,6 +27,29 @@ const clearTokens = (): void => {
   localStorage.removeItem('eajmusic_token');
   localStorage.removeItem('eajmusic_refresh_token');
 };
+
+// CSRF (double-submit cookie): the backend sets a NON-httpOnly
+// `eajmusic_csrf` cookie on login/register/refresh. Every mutating request
+// must echo it back as the `X-CSRF-Token` header, except the auth endpoints
+// that run before any CSRF cookie could exist, and public/anonymous routes.
+const CSRF_COOKIE_NAME = 'eajmusic_csrf';
+const CSRF_HEADER_NAME = 'X-CSRF-Token';
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const CSRF_EXEMPT_EXACT_ENDPOINTS = new Set(['/auth/login', '/auth/register']);
+
+const getCsrfTokenFromCookie = (): string | null => {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${CSRF_COOKIE_NAME}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
+const isCsrfExempt = (endpoint: string): boolean =>
+  CSRF_EXEMPT_EXACT_ENDPOINTS.has(endpoint) || endpoint.startsWith('/public/');
+
+// Endpoints where a 401 is an expected, non-fatal outcome (e.g. "am I
+// logged in?") or where a 401 means "bad credentials" rather than "session
+// expired" - these must NOT trigger the refresh-then-redirect-to-login flow.
+const AUTH_FLOW_ENDPOINTS = new Set(['/auth/login', '/auth/register', '/auth/me', '/auth/logout', '/auth/refresh']);
 
 // API Error class
 export class ApiError extends Error {
@@ -45,14 +78,18 @@ const onRefreshed = (token: string) => {
 };
 
 const refreshTokens = async (): Promise<string | null> => {
+  // The httpOnly `eajmusic_refresh` cookie (sent automatically via
+  // credentials:'include') is what actually authenticates this call now.
+  // The localStorage refresh token, if present, is only sent in the body as
+  // a backward-compatible fallback - it is NOT required to attempt refresh.
   const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
 
   try {
     const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      body: JSON.stringify(refreshToken ? { refreshToken } : {}),
     });
 
     if (!response.ok) {
@@ -62,7 +99,9 @@ const refreshTokens = async (): Promise<string | null> => {
 
     const data = await response.json();
     if (data.accessToken) {
-      setTokens(data.accessToken, data.refreshToken);
+      if (data.refreshToken) {
+        setTokens(data.accessToken, data.refreshToken);
+      }
       return data.accessToken;
     }
   } catch {
@@ -78,23 +117,33 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
+  const method = (options.method || 'GET').toUpperCase();
+  const needsCsrf = MUTATING_METHODS.has(method) && !isCsrfExempt(endpoint);
+  const csrfToken = needsCsrf ? getCsrfTokenFromCookie() : null;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),
+    ...(csrfToken && { [CSRF_HEADER_NAME]: csrfToken }),
     ...(options.headers as Record<string, string> | undefined),
   };
 
   const config: RequestInit = {
     ...options,
     headers,
+    // Required so the browser attaches the httpOnly eajmusic_* cookies
+    // (and the readable csrf cookie) on cross-subdomain requests.
+    credentials: 'include',
   };
 
   try {
     let response = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
-    // Handle 401 - try to refresh token
-    if (response.status === 401 && token) {
+    // Handle 401 - try to refresh the session via the httpOnly refresh
+    // cookie. Skipped for auth-flow endpoints where a 401 is an expected,
+    // non-fatal outcome (e.g. "am I logged in?" or "bad credentials") -
+    // redirecting to /login from those would be wrong.
+    if (response.status === 401 && !AUTH_FLOW_ENDPOINTS.has(endpoint)) {
       if (!isRefreshing) {
         isRefreshing = true;
         const newToken = await refreshTokens();
@@ -103,9 +152,14 @@ async function request<T>(
         if (newToken) {
           onRefreshed(newToken);
 
-          // Retry the original request
+          // Retry the original request. The refresh call rotates the CSRF
+          // cookie too, so re-read it before retrying a mutating request.
           headers['Authorization'] = `Bearer ${newToken}`;
-          response = await fetch(`${API_BASE_URL}${endpoint}`, { ...config, headers });
+          if (needsCsrf) {
+            const freshCsrfToken = getCsrfTokenFromCookie();
+            if (freshCsrfToken) headers[CSRF_HEADER_NAME] = freshCsrfToken;
+          }
+          response = await fetch(`${API_BASE_URL}${endpoint}`, { ...config, headers, credentials: 'include' });
         } else {
           // Redirect to login
           window.location.href = '/login';
@@ -117,7 +171,11 @@ async function request<T>(
           subscribeTokenRefresh(async (newToken) => {
             try {
               headers['Authorization'] = `Bearer ${newToken}`;
-              const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, { ...config, headers });
+              if (needsCsrf) {
+                const freshCsrfToken = getCsrfTokenFromCookie();
+                if (freshCsrfToken) headers[CSRF_HEADER_NAME] = freshCsrfToken;
+              }
+              const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, { ...config, headers, credentials: 'include' });
               const data = await retryResponse.json();
               resolve(data);
             } catch (error) {
@@ -170,8 +228,9 @@ export const api = {
   delete: <T>(endpoint: string) => request<T>(endpoint, { method: 'DELETE' }),
 
   // File upload
-  upload: async (endpoint: string, file: File, additionalData?: Record<string, string>) => {
+  upload: async <T>(endpoint: string, file: File, additionalData?: Record<string, string>): Promise<T> => {
     const token = getToken();
+    const csrfToken = getCsrfTokenFromCookie();
     const formData = new FormData();
     formData.append('file', file);
 
@@ -183,8 +242,10 @@ export const api = {
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         ...(token && { Authorization: `Bearer ${token}` }),
+        ...(csrfToken && { [CSRF_HEADER_NAME]: csrfToken }),
       },
       body: formData,
     });
@@ -195,12 +256,13 @@ export const api = {
       throw new ApiError(data.message || 'Upload failed', response.status, data);
     }
 
-    return data;
+    return data as T;
   },
 
   // Batch file upload
-  uploadBatch: async (endpoint: string, files: File[]) => {
+  uploadBatch: async <T>(endpoint: string, files: File[]): Promise<T> => {
     const token = getToken();
+    const csrfToken = getCsrfTokenFromCookie();
     const formData = new FormData();
 
     files.forEach(file => {
@@ -209,8 +271,10 @@ export const api = {
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         ...(token && { Authorization: `Bearer ${token}` }),
+        ...(csrfToken && { [CSRF_HEADER_NAME]: csrfToken }),
       },
       body: formData,
     });
@@ -221,7 +285,7 @@ export const api = {
       throw new ApiError(data.message || 'Upload failed', response.status, data);
     }
 
-    return data;
+    return data as T;
   },
 };
 
@@ -239,6 +303,7 @@ import type {
   SupportTicket,
   Payout,
   Announcement,
+  Testimonial,
   PaginatedResponse,
 } from '../types/api';
 
@@ -328,6 +393,12 @@ export const AdminService = {
 
   getUser: (id: string) => api.get<User>(`/admin/users/${id}`),
 
+  // Creates an employee account (SUPPORT/REVIEWER/FINANCE/ADMIN) — SUPER_ADMIN only.
+  // If `password` is omitted, the backend generates a one-time temporary
+  // password and returns it as `temporaryPassword` (never recoverable again).
+  createEmployee: (data: { name: string; email: string; role: 'SUPPORT' | 'REVIEWER' | 'FINANCE' | 'ADMIN'; password?: string; permissions?: string[] }) =>
+    api.post<{ success: boolean; message: string; user: User; temporaryPassword?: string }>('/admin/users', data),
+
   updateUserStatus: (id: string, status: string) =>
     api.patch<User>(`/admin/users/${id}/status`, { status }),
 
@@ -401,6 +472,33 @@ export const AdminService = {
   },
 
   getFinanceOverview: () => api.get<{ totalRevenue: number; pendingPayouts: number; completedPayouts: number; monthlyRevenue: Array<{ month: string; amount: number }> }>('/admin/finance/overview'),
+
+  // Testimonial moderation — requires the `testimonials:moderate` permission
+  // (ADMIN and SUPER_ADMIN have it by default).
+  getTestimonials: (params?: { status?: string; page?: number; limit?: number }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return api.get<PaginatedResponse<Testimonial>>(`/admin/testimonials${query ? `?${query}` : ''}`);
+  },
+
+  moderateTestimonial: (id: string, status: 'APPROVED' | 'REJECTED') =>
+    api.patch<{ success: boolean; message: string; testimonial: Testimonial }>(`/admin/testimonials/${id}`, { status }),
+};
+
+// Public Service (unauthenticated endpoints)
+export const PublicService = {
+  submitTestimonial: (artistId: string, data: { quote: string; photoUrl?: string }) =>
+    api.post<{ success: boolean; message: string; testimonial: { id: string; status: string } }>(
+      `/public/testimonials/${artistId}`,
+      data
+    ),
+
+  // Cacheable, unauthenticated brand/theming config (colors, logo, favicon).
+  // Backend returns `{ siteName, primaryColor, logoUrl, faviconUrl }` today
+  // (see eajmusic-api src/routes/public.js DEFAULT_BRAND_CONFIG) but the
+  // stored `brand_config` PlatformSetting can carry additional whitelabel
+  // fields (e.g. secondaryColor, fontFamily) once an admin publishes them —
+  // see ThemeContext's `BrandConfig` type for the full shape this app reads.
+  getTheme: () => api.get<Record<string, unknown>>('/public/theme'),
 };
 
 // Upload Service
@@ -414,11 +512,14 @@ export const UploadService = {
   uploadAudioBatch: (files: File[]) =>
     api.uploadBatch<Array<{ url: string; key: string; filename: string }>>('/upload/audio/batch', files),
 
+  // NOTE: unlike `/upload/audio`, the `/upload/cover` and `/upload/avatar`
+  // backend routes (eajmusic-api src/routes/upload.js) still nest the
+  // result under a `file` key: `{ success, message, file: { url, key, ... } }`.
   uploadCover: (file: File, releaseId?: string) =>
-    api.upload<{ url: string; key: string }>('/upload/cover', file, releaseId ? { releaseId } : undefined),
+    api.upload<{ success: boolean; message?: string; file: { url: string; key: string; filename?: string; originalName?: string; size?: number } }>('/upload/cover', file, releaseId ? { releaseId } : undefined),
 
   uploadAvatar: (file: File) =>
-    api.upload<{ url: string; key: string }>('/upload/avatar', file),
+    api.upload<{ success: boolean; message?: string; file: { url: string; key: string } }>('/upload/avatar', file),
 
   deleteFile: (type: 'audio' | 'images', filename: string) =>
     api.delete<{ success: boolean }>(`/upload/${type}/${filename}`),

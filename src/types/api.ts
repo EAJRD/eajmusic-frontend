@@ -1,10 +1,15 @@
+// Employee roles (SUPPORT/REVIEWER/FINANCE/ADMIN) only ever operate inside
+// the internal admin panel (eaj.eajmusic.com) — see Prisma's UserRole enum.
+export type UserRole = 'ARTIST' | 'LABEL' | 'ADMIN' | 'SUPER_ADMIN' | 'SUPPORT' | 'REVIEWER' | 'FINANCE';
+
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'ARTIST' | 'LABEL' | 'ADMIN' | 'SUPER_ADMIN';
+  role: UserRole;
   status: string;
   avatarUrl: string | null;
+  permissions?: string[] | null;
   subscription?: {
     plan: string;
     commissionRate: number;
@@ -109,6 +114,26 @@ export interface Announcement {
   type: string;
   isActive: boolean;
   createdAt: string;
+}
+
+export interface Testimonial {
+  id: string;
+  artistId: string;
+  quote: string;
+  photoUrl: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewedById: string | null;
+  artistProfile?: {
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+  };
+  reviewedBy?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface PaginatedResponse<T> {

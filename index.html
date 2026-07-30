@@ -5,6 +5,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>EAJMUSIC Platform</title>
+  <!-- Default favicon: inline SVG so there's no extra asset file to ship.
+       Swapped at runtime by ThemeContext.tsx (applyBrandConfig) whenever a
+       Super Admin publishes a custom `faviconUrl` via BrandSettings.tsx. -->
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill='%232FE0C2' d='M47.2426 24L24 47.2426L0.757355 24L24 0.757355L47.2426 24ZM12.2426 21H35.7574L24 9.24264L12.2426 21Z'/%3E%3C/svg%3E">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#000000">
   <meta http-equiv="Content-Security-Policy"
