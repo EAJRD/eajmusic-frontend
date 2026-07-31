@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Logo } from '../../components/Icons';
+import ConnectionStatusBadge from '../../components/ConnectionStatusBadge';
 import AdminOverview from './pages/AdminOverview';
 import PlansAndCommissions from './pages/PlansAndCommissions';
 import Announcements from './pages/Announcements';
@@ -11,11 +12,10 @@ import ReleasesList from './pages/ReleasesList';
 import UsersList from './pages/UsersList';
 import AdminSettings from './pages/AdminSettings';
 import FinanceHub from './pages/FinanceHub';
-import AuditLog from './pages/AuditLog';
 import Team from './pages/Team';
 import TestimonialModeration from './pages/TestimonialModeration';
 
-export type AdminTab = 'overview' | 'plans' | 'announcements' | 'tickets' | 'brand' | 'releases' | 'users' | 'settings' | 'finance' | 'audit' | 'team' | 'testimonials';
+export type AdminTab = 'overview' | 'plans' | 'announcements' | 'tickets' | 'brand' | 'releases' | 'users' | 'settings' | 'finance' | 'team' | 'testimonials';
 
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
@@ -51,8 +51,6 @@ const AdminDashboard: React.FC = () => {
         return <AdminSettings />;
       case 'finance':
         return <FinanceHub />;
-      case 'audit':
-        return <AuditLog />;
       case 'team':
         return <Team />;
       case 'testimonials':
@@ -162,12 +160,6 @@ const AdminDashboard: React.FC = () => {
           )}
 
           <p className="px-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 mt-6">System</p>
-          <NavItem
-            icon="history"
-            label="Audit Log"
-            isActive={activeTab === 'audit'}
-            onClick={() => selectTab('audit')}
-          />
           {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
             <NavItem
               icon="badge"
@@ -214,6 +206,9 @@ const AdminDashboard: React.FC = () => {
       <main className="flex-1 lg:ml-0 min-h-[calc(100vh-64px)] lg:min-h-screen">
         {renderContent()}
       </main>
+
+      {/* Connection Status Indicator */}
+      <ConnectionStatusBadge position="bottom-right" showText={true} />
     </div>
   );
 };

@@ -55,6 +55,28 @@ export default {
         input: {
           dark: withOpacity('--color-dark-800'),
         },
+        // "Sonic Dark" — fixed design system for the release module
+        // (apps/artist/pages: Catalog, ReleaseDetail, NewRelease wizard,
+        // Dashboard). Approved as-is from the Stitch reference; unlike the
+        // tokens above this is NOT wired to the live-theming CSS vars, since
+        // this module's identity (pure black + neon lime) is deliberately
+        // fixed rather than Super-Admin-recolorable.
+        sonic: {
+          bg: '#0a0a0a',
+          surface: '#131313',
+          card: '#1a1a1a',
+          elevated: '#2c2c2c',
+          border: '#333333',
+          primary: '#e1ff00',
+          'primary-ink': '#191e00',
+          text: '#e5e2e1',
+          'text-dim': '#9c9c98',
+          error: '#ffb4ab',
+        },
+      },
+      fontFamily: {
+        sonic: ['"Hanken Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
     },
   },

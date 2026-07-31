@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArtistService } from '../../../src/services/api';
 import { crossDomainUrl } from '../../../src/utils/subdomain';
+import { useAuth } from '../../../src/contexts/AuthContext';
 
 interface SocialLinks {
     instagram: string;
@@ -10,10 +11,18 @@ interface SocialLinks {
 }
 
 const Profile: React.FC = () => {
+    const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState('');
     const [profileId, setProfileId] = useState<string | null>(null);
+
+    const isFree = user?.subscription?.plan === 'FREE';
+    const [labelInfo, setLabelInfo] = useState<{ id: string; name: string } | null>(null);
+    const [labelLoading, setLabelLoading] = useState(true);
+    const [newLabelId, setNewLabelId] = useState('');
+    const [changingLabel, setChangingLabel] = useState(false);
+    const [labelError, setLabelError] = useState('');
 
     const [formData, setFormData] = useState({
         displayName: '',
@@ -49,6 +58,35 @@ const Profile: React.FC = () => {
         };
         fetchProfile();
     }, []);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await ArtistService.getLabel();
+                setLabelInfo(res?.label || null);
+            } catch {
+                // Non-fatal — the label card just shows nothing.
+            } finally {
+                setLabelLoading(false);
+            }
+        })();
+    }, []);
+
+    const handleChangeLabel = async () => {
+        if (!newLabelId.trim()) return;
+        setChangingLabel(true);
+        setLabelError('');
+        try {
+            await ArtistService.changeLabel(newLabelId.trim());
+            const res = await ArtistService.getLabel();
+            setLabelInfo(res?.label || null);
+            setNewLabelId('');
+        } catch (err: any) {
+            setLabelError(err.message || 'Failed to change label.');
+        } finally {
+            setChangingLabel(false);
+        }
+    };
 
     const showToast = (message: string) => {
         setToast(message);
@@ -133,6 +171,43 @@ const Profile: React.FC = () => {
                         <h2 className="text-2xl font-black mt-4">{formData.displayName || 'Unnamed Artist'}</h2>
                         {!profileId && <p className="text-xs text-amber-500 font-bold mt-1">No artist profile yet — save to create one</p>}
                     </div>
+                </div>
+
+                {/* Label */}
+                <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm space-y-4">
+                    <h3 className="text-lg font-bold">Label</h3>
+                    {labelLoading ? (
+                        <p className="text-sm text-slate-400">Loading...</p>
+                    ) : (
+                        <>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                Distributing under <span className="font-bold text-slate-900 dark:text-white">{labelInfo?.name || 'EAJMUSIC'}</span>
+                            </p>
+                            {isFree ? (
+                                <p className="text-xs text-amber-600 dark:text-amber-400 font-bold">
+                                    Free-plan artists stay on the default label. Upgrade your plan to switch to a different one.
+                                </p>
+                            ) : (
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                        type="text"
+                                        value={newLabelId}
+                                        onChange={(e) => setNewLabelId(e.target.value)}
+                                        placeholder="New label ID"
+                                        className="flex-1 min-w-[200px] bg-slate-50 dark:bg-input-dark border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary text-slate-900 dark:text-white"
+                                    />
+                                    <button
+                                        onClick={handleChangeLabel}
+                                        disabled={!newLabelId.trim() || changingLabel}
+                                        className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 disabled:opacity-50"
+                                    >
+                                        {changingLabel ? 'Saving...' : 'Change Label'}
+                                    </button>
+                                </div>
+                            )}
+                            {labelError && <p className="text-xs text-rose-500 font-bold">{labelError}</p>}
+                        </>
+                    )}
                 </div>
 
                 {/* Form Fields */}

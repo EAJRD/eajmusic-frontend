@@ -9,6 +9,7 @@ export interface User {
   role: UserRole;
   status: string;
   avatarUrl: string | null;
+  emailVerified?: boolean;
   permissions?: string[] | null;
   subscription?: {
     plan: string;
@@ -86,6 +87,14 @@ export interface AdminStats {
   activeSubscriptions: number;
 }
 
+export interface SupportTicketMessage {
+  id: string;
+  message: string;
+  isInternal: boolean;
+  createdAt: string;
+  user?: { id: string; name: string; avatarUrl: string | null; role: string };
+}
+
 export interface SupportTicket {
   id: string;
   subject: string;
@@ -94,6 +103,9 @@ export interface SupportTicket {
   status: string;
   createdAt: string;
   updatedAt: string;
+  user?: { id: string; name: string; email: string; avatarUrl: string | null };
+  assignee?: { id: string; name: string } | null;
+  messages?: SupportTicketMessage[];
 }
 
 export interface Payout {
@@ -112,7 +124,9 @@ export interface Announcement {
   title: string;
   content: string;
   type: string;
+  targetAudience?: string;
   isActive: boolean;
+  startsAt?: string;
   createdAt: string;
 }
 

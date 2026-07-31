@@ -7,34 +7,6 @@ interface AdminOverviewProps {
   onNavigate?: (tab: AdminTab) => void;
 }
 
-const getActionConfig = (action: string) => {
-  switch (action) {
-    case 'USER_REGISTERED': return { icon: 'person_add', color: 'text-blue-500 bg-blue-500/10', text: 'User Registered' };
-    case 'RELEASE_CREATED': return { icon: 'add_circle', color: 'text-purple-500 bg-purple-500/10', text: 'Release Created' };
-    case 'RELEASE_SUBMITTED': return { icon: 'upload', color: 'text-purple-500 bg-purple-500/10', text: 'Release Submitted' };
-    case 'RELEASE_APPROVED': return { icon: 'check_circle', color: 'text-emerald-500 bg-emerald-500/10', text: 'Release Approved' };
-    case 'RELEASE_REJECTED': return { icon: 'cancel', color: 'text-rose-500 bg-rose-500/10', text: 'Release Rejected' };
-    case 'PAYOUT_BULK_COMPLETED': case 'PAYOUT_BULK_CREATED': return { icon: 'payments', color: 'text-emerald-500 bg-emerald-500/10', text: 'Payout Processed' };
-    case 'USER_STATUS_CHANGED': return { icon: 'manage_accounts', color: 'text-amber-500 bg-amber-500/10', text: 'User Status Changed' };
-    case 'USER_ROLE_CHANGED': return { icon: 'admin_panel_settings', color: 'text-indigo-500 bg-indigo-500/10', text: 'User Role Changed' };
-    case 'USER_PLAN_CHANGED': return { icon: 'workspace_premium', color: 'text-indigo-500 bg-indigo-500/10', text: 'User Plan Changed' };
-    case 'SETTING_CHANGED': case 'SETTING_UPDATED': return { icon: 'settings', color: 'text-slate-500 bg-slate-500/10', text: 'Setting Updated' };
-    case 'USER_LOGIN': return { icon: 'login', color: 'text-slate-500 bg-slate-500/10', text: 'User Login' };
-    default: return { icon: 'info', color: 'text-slate-500 bg-slate-500/10', text: action };
-  }
-};
-
-const relativeTime = (value?: string | null) => {
-  if (!value) return '—';
-  const diffMs = Date.now() - new Date(value).getTime();
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-};
-
 const money = (value: unknown): number => {
   const n = typeof value === 'string' ? parseFloat(value) : Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -43,9 +15,7 @@ const money = (value: unknown): number => {
 const AdminOverview: React.FC<AdminOverviewProps> = ({ onNavigate }) => {
   const [stats, setStats] = useState<any>(null);
   const [chartData, setChartData] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
-  const [loadingLogs, setLoadingLogs] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -63,17 +33,6 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ onNavigate }) => {
         console.error(err);
       } finally {
         setLoadingStats(false);
-      }
-    })();
-
-    (async () => {
-      try {
-        const res = await AdminService.getAuditLogs({ limit: 8 });
-        setLogs(res?.logs || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingLogs(false);
       }
     })();
   }, []);
@@ -165,7 +124,7 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 gap-8">
         {/* Quick Actions */}
         <div className="space-y-4">
           <h3 className="text-lg font-black text-slate-900 dark:text-white">Quick Actions</h3>
@@ -209,38 +168,6 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ onNavigate }) => {
               </div>
               <span className="font-bold text-slate-700 dark:text-slate-300">Create Announcement</span>
             </button>
-          </div>
-        </div>
-
-        {/* Recent Activity Feed */}
-        <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-dark-800 p-6 flex flex-col h-full shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white">Recent Activity</h3>
-            <button
-              onClick={() => onNavigate?.('audit')}
-              className="text-sm font-bold text-brand-500 hover:text-brand-600 transition-colors"
-            >
-              View All
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto space-y-4">
-            {loadingLogs && <p className="text-sm text-slate-400 text-center py-4">Loading...</p>}
-            {!loadingLogs && logs.length === 0 && <p className="text-sm text-slate-400 text-center py-4">No recent activity.</p>}
-            {!loadingLogs && logs.map((log) => {
-              const config = getActionConfig(log.action);
-              return (
-                <div key={log.id} className="flex items-center gap-4 py-2">
-                  <div className={`p-2 rounded-lg ${config.color}`}>
-                    <span className="material-symbols-outlined">{config.icon}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{config.text}</p>
-                    <p className="text-xs font-medium text-slate-500 truncate">by {log.user?.name || 'System'}</p>
-                  </div>
-                  <span className="text-xs font-bold text-slate-400 shrink-0">{relativeTime(log.createdAt)}</span>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>

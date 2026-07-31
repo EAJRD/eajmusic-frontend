@@ -333,6 +333,12 @@ export const AuthService = {
 
   resetPassword: (token: string, newPassword: string) =>
     api.post<{ success: boolean; message: string }>('/auth/reset-password', { token, newPassword }),
+
+  verifyEmail: (token: string) =>
+    api.post<{ success: boolean; message: string }>('/auth/verify-email', { token }),
+
+  resendVerification: () =>
+    api.post<{ success: boolean; message: string }>('/auth/resend-verification', {}),
 };
 
 // `new URLSearchParams({ role: undefined })` stringifies missing optional
@@ -351,6 +357,19 @@ const buildQuery = (params?: Record<string, unknown>): string => {
 // Artist Service
 export const ArtistService = {
   getStats: () => api.get<ArtistStats>('/artist/stats'),
+
+  // For ARTIST accounts: which Label manages them (`label`). For LABEL
+  // accounts: the Label they operate (`ownedLabel`) and the artists under it
+  // (`managedArtists`).
+  getLabel: () =>
+    api.get<{
+      label: { id: string; name: string; logoUrl: string | null } | null;
+      ownedLabel: { id: string; name: string } | null;
+      managedArtists: { id: string; name: string; email: string; avatarUrl: string | null; createdAt: string }[];
+    }>('/artist/label'),
+
+  changeLabel: (labelId: string) =>
+    api.patch<{ success: boolean; labelId: string }>('/artist/label', { labelId }),
 
   getReleases: (params?: { status?: string; page?: number; limit?: number }) => {
     const query = buildQuery(params);
@@ -472,6 +491,12 @@ export const AdminService = {
   updateTicketStatus: (ticketId: string, status: string) =>
     api.patch<{ success: boolean }>(`/admin/tickets/${ticketId}/status`, { status }),
 
+  assignTicket: (ticketId: string, assigneeId: string | null) =>
+    api.patch<{ success: boolean; ticket: SupportTicket }>(`/admin/tickets/${ticketId}/assign`, { assigneeId }),
+
+  createTicketForUser: (data: { userId: string; subject: string; category?: string; priority?: string; message: string }) =>
+    api.post<{ success: boolean; ticket: SupportTicket }>('/admin/tickets', data),
+
   getSettings: () => api.get<Record<string, { value: unknown; description: string }>>('/admin/settings'),
 
   updateSetting: (key: string, value: unknown, description?: string) =>
@@ -485,6 +510,11 @@ export const AdminService = {
   },
 
   getFinanceOverview: () => api.get<{ totalRevenue: number; pendingPayouts: number; completedPayouts: number; monthlyRevenue: Array<{ month: string; amount: number }> }>('/admin/finance/overview'),
+
+  getUserWallet: (userId: string) => api.get<{ wallet: Wallet }>(`/admin/users/${userId}/wallet`),
+
+  adjustUserWallet: (userId: string, data: { availableBalance?: number; pendingBalance?: number; reason: string }) =>
+    api.patch<{ success: boolean; wallet: Wallet }>(`/admin/users/${userId}/wallet`, data),
 
   // Testimonial moderation — requires the `testimonials:moderate` permission
   // (ADMIN and SUPER_ADMIN have it by default).
@@ -512,6 +542,20 @@ export const PublicService = {
   // fields (e.g. secondaryColor, fontFamily) once an admin publishes them —
   // see ThemeContext's `BrandConfig` type for the full shape this app reads.
   getTheme: () => api.get<Record<string, unknown>>('/public/theme'),
+
+  // Powers eajmusic.com/talent — a card per artist on the platform.
+  getTalent: (params?: { page?: number; limit?: number }) => {
+    const query = buildQuery(params);
+    return api.get<PaginatedResponse<{ id: string; name: string; bio: string | null; avatarUrl: string | null; isVerified: boolean }>>(
+      `/public/talent${query ? `?${query}` : ''}`
+    );
+  },
+
+  // Active-only feed rendered by AnnouncementBanner in all 3 domains — the
+  // admin CRUD (AdminService.getAnnouncements etc.) manages the full list
+  // including inactive/expired/future-dated ones.
+  getAnnouncements: () =>
+    api.get<{ announcements: Announcement[] }>('/public/announcements'),
 };
 
 // Upload Service

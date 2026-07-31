@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { ArtistService } from '../../src/services/api';
+import { ArtistService, AuthService } from '../../src/services/api';
 import { Logo } from '../../components/Icons';
 import ThemeToggle from '../../components/ThemeToggle';
-import ConnectionStatusBadge from '../../components/ConnectionStatusBadge';
 import NewRelease from './pages/NewRelease';
 import TrackAnalytics from './pages/TrackAnalytics';
 import Wallet from './pages/Wallet';
@@ -12,11 +11,13 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Support from './pages/Support';
 import Catalog from './pages/Catalog';
+import ReleaseDetail from './pages/ReleaseDetail';
 import PaymentMethods from './pages/PaymentMethods';
 import SubmissionSuccessModal from './components/SubmissionSuccessModal';
 
 const ArtistDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'music' | 'analytics' | 'wallet' | 'payment-methods' | 'upload' | 'profile' | 'settings' | 'support'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'music' | 'analytics' | 'wallet' | 'payment-methods' | 'upload' | 'profile' | 'settings' | 'support' | 'artists'>('overview');
+  const [selectedReleaseId, setSelectedReleaseId] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
@@ -30,6 +31,7 @@ const ArtistDashboard: React.FC = () => {
   // Mock function to simulate a submission completion
   const handleSubmissionComplete = () => {
     setActiveTab('music');
+    setSelectedReleaseId(null);
     setShowSuccessModal(true);
   };
 
@@ -40,7 +42,11 @@ const ArtistDashboard: React.FC = () => {
       case 'analytics':
         return <TrackAnalytics />;
       case 'music':
-        return <Catalog />;
+        return selectedReleaseId ? (
+          <ReleaseDetail releaseId={selectedReleaseId} onBack={() => setSelectedReleaseId(null)} />
+        ) : (
+          <Catalog onSelectRelease={setSelectedReleaseId} />
+        );
       case 'wallet':
         return <Wallet />;
       case 'payment-methods':
@@ -51,6 +57,8 @@ const ArtistDashboard: React.FC = () => {
         return <Settings />;
       case 'support':
         return <Support />;
+      case 'artists':
+        return <ManagedArtists />;
       case 'overview':
       default:
         return <ArtistOverview onUploadClick={() => setActiveTab('upload')} />;
@@ -58,16 +66,16 @@ const ArtistDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-dark-950 text-slate-900 dark:text-white flex flex-col lg:flex-row font-sans">
+    <div className="min-h-screen bg-sonic-bg text-sonic-text flex flex-col lg:flex-row font-sonic">
       {/* Mobile Header */}
-      <div className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-card-dark border-b border-slate-200 dark:border-dark-800 sticky top-0 z-30">
+      <div className="lg:hidden flex items-center justify-between p-4 bg-sonic-card border-b border-sonic-border sticky top-0 z-30">
         <div className="flex items-center gap-2">
-          <Logo className="text-brand-500 w-8 h-8" />
-          <span className="font-bold text-lg tracking-tight">Artist Portal</span>
+          <Logo className="text-sonic-primary w-8 h-8" />
+          <span className="font-bold text-lg tracking-tight text-sonic-text">EAJMUSIC</span>
         </div>
         <button
           onClick={() => setIsMobileMenuOpen(true)}
-          className="p-2 text-slate-500 hover:text-brand-500 transition-colors"
+          className="p-2 text-sonic-text-dim hover:text-sonic-primary transition-colors"
         >
           <span className="material-symbols-outlined text-3xl">menu</span>
         </button>
@@ -83,14 +91,17 @@ const ArtistDashboard: React.FC = () => {
 
       {/* Sidebar Navigation */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-card-dark border-r border-slate-200 dark:border-dark-800 flex flex-col 
+        fixed inset-y-0 left-0 z-50 w-64 bg-sonic-card border-r border-sonic-border flex flex-col
         transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:h-screen
         ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
       `}>
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-200 dark:border-dark-800">
+        <div className="h-16 flex items-center justify-between px-6 border-b border-sonic-border">
           <div className="flex items-center">
-            <Logo className="text-brand-500 w-8 h-8 mr-2" />
-            <span className="font-bold text-lg tracking-tight">Artist Portal</span>
+            <Logo className="text-sonic-primary w-8 h-8 mr-2" />
+            <div className="leading-tight">
+              <span className="block font-bold text-lg tracking-tight text-sonic-text">EAJMUSIC</span>
+              <span className="hidden lg:block text-[10px] uppercase tracking-wider text-sonic-text-dim">{user?.role === 'LABEL' ? 'Label Portal' : 'Artist Portal'}</span>
+            </div>
           </div>
           <div className="hidden lg:block">
             <ThemeToggle />
@@ -98,7 +109,7 @@ const ArtistDashboard: React.FC = () => {
           {/* Close button for mobile */}
           <button
             onClick={() => setIsMobileMenuOpen(false)}
-            className="lg:hidden text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            className="lg:hidden text-sonic-text-dim hover:text-sonic-text"
           >
             <span className="material-symbols-outlined">close</span>
           </button>
@@ -108,14 +119,14 @@ const ArtistDashboard: React.FC = () => {
           <div className="mb-6 px-2">
             <button
               onClick={() => { setActiveTab('upload'); setIsMobileMenuOpen(false); }}
-              className="w-full bg-brand-600 hover:bg-brand-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full bg-sonic-primary hover:bg-sonic-primary/90 text-sonic-primary-ink font-bold py-3 rounded flex items-center justify-center gap-2 transition-colors"
             >
               <span className="material-symbols-outlined">add_circle</span>
               New Release
             </button>
           </div>
 
-          <p className="px-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 mt-2">Menu</p>
+          <p className="px-4 text-xs font-bold text-sonic-text-dim uppercase tracking-wider mb-2 mt-2">Menu</p>
           <NavItem
             icon="dashboard"
             label="Overview"
@@ -126,8 +137,16 @@ const ArtistDashboard: React.FC = () => {
             icon="library_music"
             label="My Music"
             isActive={activeTab === 'music'}
-            onClick={() => { setActiveTab('music'); setIsMobileMenuOpen(false); }}
+            onClick={() => { setActiveTab('music'); setSelectedReleaseId(null); setIsMobileMenuOpen(false); }}
           />
+          {user?.role === 'LABEL' && (
+            <NavItem
+              icon="groups"
+              label="Managed Artists"
+              isActive={activeTab === 'artists'}
+              onClick={() => { setActiveTab('artists'); setIsMobileMenuOpen(false); }}
+            />
+          )}
           <NavItem
             icon="bar_chart"
             label="Analytics"
@@ -147,7 +166,7 @@ const ArtistDashboard: React.FC = () => {
             onClick={() => { setActiveTab('payment-methods'); setIsMobileMenuOpen(false); }}
           />
 
-          <p className="px-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 mt-6">Account</p>
+          <p className="px-4 text-xs font-bold text-sonic-text-dim uppercase tracking-wider mb-2 mt-6">Account</p>
           <NavItem
             icon="person"
             label="Profile"
@@ -168,19 +187,19 @@ const ArtistDashboard: React.FC = () => {
           />
         </div>
 
-        <div className="p-4 border-t border-slate-200 dark:border-dark-800">
+        <div className="p-4 border-t border-sonic-border">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
+            <div className="w-8 h-8 rounded-full bg-sonic-primary flex items-center justify-center text-sonic-primary-ink font-bold text-xs">
               {(user?.name || 'Artist').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-bold truncate">{user?.name || 'Artist'}</p>
-              <p className="text-xs text-slate-400 truncate">{user?.email || ''}</p>
+              <p className="text-sm font-bold truncate text-sonic-text">{user?.name || 'Artist'}</p>
+              <p className="text-xs text-sonic-text-dim truncate">{user?.email || ''}</p>
             </div>
             <button
               onClick={handleLogout}
               title="Log out"
-              className="text-slate-400 hover:text-white"
+              className="text-sonic-text-dim hover:text-sonic-text transition-colors"
             >
               <span className="material-symbols-outlined text-[20px]">logout</span>
             </button>
@@ -190,8 +209,11 @@ const ArtistDashboard: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 lg:ml-0 min-h-[calc(100vh-64px)] lg:min-h-screen">
+        <VerifyEmailBanner />
         {renderContent()}
       </main>
+
+      {user?.role === 'ARTIST' && <OnboardingWizard />}
 
       {/* Modal Overlay */}
       {showSuccessModal && (
@@ -200,9 +222,6 @@ const ArtistDashboard: React.FC = () => {
           onViewStatus={() => { setShowSuccessModal(false); setActiveTab('music'); }}
         />
       )}
-
-      {/* Connection Status Indicator */}
-      <ConnectionStatusBadge position="bottom-right" showText={true} />
     </div>
   );
 };
@@ -211,15 +230,15 @@ const ArtistDashboard: React.FC = () => {
 const NavItem = ({ icon, label, isActive, onClick, badge }: { icon: string, label: string, isActive: boolean, onClick: () => void, badge?: string }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
-      ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400'
-      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-dark-800 hover:text-slate-900 dark:hover:text-white'
+    className={`w-full flex items-center gap-3 pl-3 pr-4 py-2.5 rounded text-sm font-medium transition-colors border-l-2 ${isActive
+      ? 'border-sonic-primary bg-sonic-elevated text-sonic-primary'
+      : 'border-transparent text-sonic-text-dim hover:bg-sonic-elevated hover:text-sonic-text'
       }`}
   >
     <span className={`material-symbols-outlined text-[20px] ${isActive ? 'filled' : ''}`}>{icon}</span>
     <span>{label}</span>
     {badge && (
-      <span className="ml-auto bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{badge}</span>
+      <span className="ml-auto bg-sonic-elevated text-sonic-error border border-sonic-error/40 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{badge}</span>
     )}
   </button>
 );
@@ -253,12 +272,12 @@ const formatCurrency = (n: number): string =>
   `$${(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const RELEASE_STATUS_STYLES: Record<string, string> = {
-  LIVE: 'bg-emerald-500/10 text-emerald-500',
-  PENDING: 'bg-amber-500/10 text-amber-500',
-  APPROVED: 'bg-sky-500/10 text-sky-500',
-  DRAFT: 'bg-slate-500/10 text-slate-400',
-  REJECTED: 'bg-rose-500/10 text-rose-500',
-  TAKEDOWN: 'bg-rose-500/10 text-rose-500',
+  LIVE: 'bg-sonic-primary/10 text-sonic-primary border border-sonic-primary/30',
+  PENDING: 'bg-sonic-elevated text-sonic-text-dim border border-sonic-border',
+  APPROVED: 'bg-sonic-primary/5 text-sonic-primary/80 border border-sonic-primary/20',
+  DRAFT: 'bg-sonic-elevated text-sonic-text-dim border border-sonic-border',
+  REJECTED: 'bg-sonic-error/10 text-sonic-error border border-sonic-error/30',
+  TAKEDOWN: 'bg-sonic-error/10 text-sonic-error border border-sonic-error/30',
 };
 
 const ArtistOverview = ({ onUploadClick }: { onUploadClick: () => void }) => {
@@ -295,56 +314,55 @@ const ArtistOverview = ({ onUploadClick }: { onUploadClick: () => void }) => {
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       <header className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Good Morning, {firstName}</h1>
-          <p className="text-slate-500 dark:text-slate-400">Here's how your music is performing today.</p>
+          <h1 className="text-3xl font-black text-sonic-text mb-2">Good Morning, {firstName}</h1>
+          <p className="text-sonic-text-dim">Here's how your music is performing today.</p>
         </div>
       </header>
 
       {/* Highlight Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-brand-600 to-indigo-600 rounded-2xl p-6 text-white shadow-xl shadow-brand-500/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-32 bg-white opacity-5 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-          <p className="text-brand-100 text-xs font-bold uppercase tracking-wider mb-1">Available Balance</p>
-          <h2 className="text-4xl font-black mb-4">{loading ? '—' : formatCurrency(stats?.availableBalance || 0)}</h2>
-          <button className="bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors backdrop-blur-sm">Withdraw Funds</button>
+        <div className="bg-sonic-card rounded-lg border border-sonic-border p-6 relative overflow-hidden">
+          <p className="text-sonic-text-dim text-xs font-bold uppercase tracking-wider mb-1">Available Balance</p>
+          <h2 className="text-4xl font-black mb-4 text-sonic-primary font-mono">{loading ? '—' : formatCurrency(stats?.availableBalance || 0)}</h2>
+          <button className="bg-sonic-elevated hover:bg-sonic-primary text-sonic-text hover:text-sonic-primary-ink text-xs font-bold px-4 py-2 rounded transition-colors">Withdraw Funds</button>
         </div>
 
         <StatCard
           label="Total Streams"
           value={loading ? '—' : formatCompactNumber(stats?.totalStreams || 0)}
           icon="graphic_eq"
-          color="bg-brand-500"
+          color="text-sonic-primary"
         />
         <StatCard
           label="Monthly Listeners"
           value={loading ? '—' : formatCompactNumber(stats?.monthlyListeners || 0)}
           icon="groups"
-          color="bg-purple-500"
+          color="text-sonic-text"
         />
       </div>
 
       {/* Recent Releases Section */}
-      <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-dark-800 p-6 shadow-sm">
+      <div className="bg-sonic-card rounded-lg border border-sonic-border p-6">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-bold">Your Releases</h3>
+          <h3 className="text-lg font-bold text-sonic-text">Your Releases</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {!loading && releases.map((release) => (
-            <div key={release.id} className="group border border-slate-200 dark:border-dark-800 rounded-xl p-4 hover:border-brand-500 transition-colors cursor-pointer">
+            <div key={release.id} className="group border border-sonic-border rounded-lg p-4 hover:border-sonic-primary transition-colors cursor-pointer">
               <div className="flex items-center gap-4">
                 <div
-                  className="size-16 rounded-lg bg-slate-200 dark:bg-slate-800 bg-cover bg-center shadow-md relative group-hover:shadow-lg transition-all"
+                  className="size-16 rounded bg-sonic-elevated bg-cover bg-center relative"
                   style={release.coverArtUrl ? { backgroundImage: `url('${release.coverArtUrl}')` } : undefined}
                 >
                   {!release.coverArtUrl && (
-                    <div className="absolute inset-0 flex items-center justify-center text-slate-400">
+                    <div className="absolute inset-0 flex items-center justify-center text-sonic-text-dim">
                       <span className="material-symbols-outlined">album</span>
                     </div>
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h4 className="font-bold text-slate-900 dark:text-white group-hover:text-brand-500 transition-colors truncate">{release.title}</h4>
-                  <p className="text-xs text-slate-500">
+                  <h4 className="font-bold text-sonic-text group-hover:text-sonic-primary transition-colors truncate">{release.title}</h4>
+                  <p className="text-xs text-sonic-text-dim">
                     {release.status === 'LIVE' ? 'Released' : 'Scheduled'} {new Date(release.releaseDate || release.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </p>
                   <div className="mt-2 flex items-center gap-2">
@@ -357,16 +375,16 @@ const ArtistOverview = ({ onUploadClick }: { onUploadClick: () => void }) => {
             </div>
           ))}
           {!loading && releases.length === 0 && (
-            <div className="col-span-full text-center py-6 text-slate-400 text-sm">
+            <div className="col-span-full text-center py-6 text-sonic-text-dim text-sm">
               You haven't released any music yet.
             </div>
           )}
           {/* Upload CTA Card */}
-          <div onClick={onUploadClick} className="border-2 border-dashed border-slate-200 dark:border-dark-800 rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/5 transition-all group h-full min-h-[100px]">
-            <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full mb-2 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-slate-400 group-hover:text-brand-500">add</span>
+          <div onClick={onUploadClick} className="border-2 border-dashed border-sonic-border rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-sonic-primary hover:bg-sonic-primary/5 transition-all group h-full min-h-[100px]">
+            <div className="bg-sonic-elevated p-2 rounded-full mb-2 group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-sonic-text-dim group-hover:text-sonic-primary">add</span>
             </div>
-            <p className="text-sm font-bold text-slate-500 group-hover:text-brand-500">Distribute New Music</p>
+            <p className="text-sm font-bold text-sonic-text-dim group-hover:text-sonic-primary">Distribute New Music</p>
           </div>
         </div>
       </div>
@@ -375,16 +393,204 @@ const ArtistOverview = ({ onUploadClick }: { onUploadClick: () => void }) => {
 };
 
 const StatCard = ({ label, value, change, icon, color }: any) => (
-  <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-dark-800 p-6 shadow-sm flex items-center justify-between">
+  <div className="bg-sonic-card rounded-lg border border-sonic-border p-6 flex items-center justify-between">
     <div>
-      <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-2xl font-black text-slate-900 dark:text-white">{value}</p>
-      {change && <p className="text-xs font-bold text-emerald-500 mt-1">{change}</p>}
+      <p className="text-sonic-text-dim text-xs font-bold uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-2xl font-black text-sonic-text font-mono">{value}</p>
+      {change && <p className="text-xs font-bold text-sonic-primary mt-1">{change}</p>}
     </div>
-    <div className={`p-3 rounded-xl ${color} text-white shadow-lg shadow-${color.replace('bg-', '')}/30`}>
+    <div className={`p-3 rounded-lg bg-sonic-elevated ${color || 'text-sonic-primary'}`}>
       <span className="material-symbols-outlined text-xl">{icon}</span>
     </div>
   </div>
 );
+
+const VerifyEmailBanner = () => {
+  const { user } = useAuth();
+  const [dismissed, setDismissed] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  if (!user || user.emailVerified || dismissed) return null;
+
+  const handleResend = async () => {
+    setSending(true);
+    try {
+      await AuthService.resendVerification();
+      setSent(true);
+    } catch {
+      // Non-fatal - banner just stays put so they can try again.
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-2.5 text-sm font-medium bg-amber-500 text-slate-900">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="material-symbols-outlined text-[18px] shrink-0">mail</span>
+        <span className="truncate">
+          {sent ? 'Verification email sent — check your inbox.' : 'Please verify your email address.'}
+          {!sent && (
+            <button onClick={handleResend} disabled={sending} className="ml-2 underline font-bold disabled:opacity-50">
+              {sending ? 'Sending...' : 'Resend email'}
+            </button>
+          )}
+        </span>
+      </div>
+      <button onClick={() => setDismissed(true)} className="shrink-0 opacity-80 hover:opacity-100 transition-opacity" aria-label="Dismiss">
+        <span className="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    </div>
+  );
+};
+
+const ONBOARDING_SEEN_KEY = 'eajmusic_onboarding_seen';
+
+const OnboardingWizard = () => {
+  const { user } = useAuth();
+  const [visible, setVisible] = useState(false);
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [step, setStep] = useState(1);
+  const [bio, setBio] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const seenIds = JSON.parse(localStorage.getItem(ONBOARDING_SEEN_KEY) || '[]');
+    if (seenIds.includes(user.id)) return;
+
+    (async () => {
+      try {
+        const profiles = await ArtistService.getProfiles();
+        const profile = profiles?.[0];
+        // Only prompt if the profile still looks freshly auto-created
+        // (no bio filled in yet) - an artist who already set one up
+        // shouldn't see this again even if the localStorage flag is lost.
+        if (profile && !(profile as any).bio) {
+          setProfileId(profile.id);
+          setVisible(true);
+        }
+      } catch {
+        // Non-fatal - onboarding just doesn't show.
+      }
+    })();
+  }, [user]);
+
+  const markSeen = () => {
+    if (!user) return;
+    const seenIds = JSON.parse(localStorage.getItem(ONBOARDING_SEEN_KEY) || '[]');
+    localStorage.setItem(ONBOARDING_SEEN_KEY, JSON.stringify([...seenIds, user.id]));
+    setVisible(false);
+  };
+
+  const handleSaveBio = async () => {
+    if (!profileId) return;
+    setSaving(true);
+    try {
+      await ArtistService.updateProfile(profileId, { bio });
+      setStep(2);
+    } catch {
+      // Non-fatal - they can always fill this in later from the Profile page.
+      setStep(2);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-sonic-card border border-sonic-border rounded-2xl shadow-2xl w-full max-w-md p-8 space-y-6">
+        {step === 1 ? (
+          <>
+            <div>
+              <h2 className="text-xl font-black text-sonic-text mb-1">Welcome to EAJMUSIC</h2>
+              <p className="text-sm text-sonic-text-dim">Tell listeners a bit about yourself. You can always change this later.</p>
+            </div>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="A short artist bio..."
+              className="w-full bg-sonic-elevated border border-sonic-border rounded-lg px-3 py-2 text-sm min-h-[100px] resize-none focus:outline-none focus:border-sonic-primary text-sonic-text"
+            />
+            <div className="flex justify-between items-center">
+              <button onClick={markSeen} className="text-sm font-bold text-sonic-text-dim hover:text-sonic-text">Skip for now</button>
+              <button
+                onClick={handleSaveBio}
+                disabled={saving}
+                className="px-5 py-2 rounded text-sm font-bold bg-sonic-primary text-sonic-primary-ink hover:bg-sonic-primary/90 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Continue'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <h2 className="text-xl font-black text-sonic-text mb-1">You're all set</h2>
+              <p className="text-sm text-sonic-text-dim">Add social links and a profile photo anytime from your Profile page.</p>
+            </div>
+            <button
+              onClick={markSeen}
+              className="w-full px-5 py-2 rounded text-sm font-bold bg-sonic-primary text-sonic-primary-ink hover:bg-sonic-primary/90"
+            >
+              Get Started
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ManagedArtists = () => {
+  const [artists, setArtists] = useState<{ id: string; name: string; email: string; avatarUrl: string | null }[]>([]);
+  const [labelName, setLabelName] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await ArtistService.getLabel();
+        setArtists(res?.managedArtists || []);
+        setLabelName(res?.ownedLabel?.name || '');
+      } catch {
+        // Non-fatal - just shows an empty list.
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  return (
+    <div className="p-8 max-w-7xl mx-auto space-y-6">
+      <header>
+        <h1 className="text-3xl font-black text-sonic-text mb-1">Managed Artists</h1>
+        <p className="text-sonic-text-dim">{labelName ? `Artists distributing under ${labelName}.` : 'Artists under your label.'}</p>
+      </header>
+
+      <div className="bg-sonic-card rounded-lg border border-sonic-border divide-y divide-sonic-border">
+        {loading && <div className="p-8 text-center text-sonic-text-dim">Loading...</div>}
+        {!loading && artists.length === 0 && (
+          <div className="p-8 text-center text-sonic-text-dim">No artists are under your label yet.</div>
+        )}
+        {!loading && artists.map((a) => (
+          <div key={a.id} className="flex items-center gap-4 p-4">
+            <div
+              className="size-10 rounded-full bg-sonic-elevated bg-cover bg-center shrink-0"
+              style={a.avatarUrl ? { backgroundImage: `url('${a.avatarUrl}')` } : undefined}
+            />
+            <div className="min-w-0">
+              <p className="font-bold text-sonic-text truncate">{a.name}</p>
+              <p className="text-xs text-sonic-text-dim truncate">{a.email}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export default ArtistDashboard;

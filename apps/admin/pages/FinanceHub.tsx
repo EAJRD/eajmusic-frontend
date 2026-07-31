@@ -23,6 +23,20 @@ const FinanceHub: React.FC = () => {
   const [actionInput, setActionInput] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Manage Artist Balance panel
+  const [balanceSearch, setBalanceSearch] = useState('');
+  const [balanceSearchResults, setBalanceSearchResults] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [searchingBalanceUser, setSearchingBalanceUser] = useState(false);
+  const [balanceUser, setBalanceUser] = useState<{ id: string; name: string } | null>(null);
+  const [wallet, setWallet] = useState<any | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [newAvailableBalance, setNewAvailableBalance] = useState('');
+  const [newPendingBalance, setNewPendingBalance] = useState('');
+  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustSaving, setAdjustSaving] = useState(false);
+  const [adjustError, setAdjustError] = useState('');
+  const [adjustSuccess, setAdjustSuccess] = useState('');
+
   useEffect(() => {
     (async () => {
       setStatsLoading(true);
@@ -73,6 +87,76 @@ const FinanceHub: React.FC = () => {
       setError(err.message || 'Failed to process payout.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const searchBalanceUser = async (query: string) => {
+    setBalanceSearch(query);
+    if (query.trim().length < 2) {
+      setBalanceSearchResults([]);
+      return;
+    }
+    setSearchingBalanceUser(true);
+    try {
+      const res = await AdminService.getUsers({ search: query.trim(), limit: 10 } as any);
+      setBalanceSearchResults(res?.data || []);
+    } catch {
+      setBalanceSearchResults([]);
+    } finally {
+      setSearchingBalanceUser(false);
+    }
+  };
+
+  const selectBalanceUser = async (u: { id: string; name: string }) => {
+    setBalanceUser(u);
+    setBalanceSearch('');
+    setBalanceSearchResults([]);
+    setAdjustError('');
+    setAdjustSuccess('');
+    setWalletLoading(true);
+    try {
+      const res = await AdminService.getUserWallet(u.id);
+      setWallet(res?.wallet || null);
+      setNewAvailableBalance(String(res?.wallet?.availableBalance ?? ''));
+      setNewPendingBalance(String(res?.wallet?.pendingBalance ?? ''));
+    } catch (err: any) {
+      setWallet(null);
+      setAdjustError(err.message || 'This user has no wallet yet.');
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  const clearBalancePanel = () => {
+    setBalanceUser(null);
+    setWallet(null);
+    setBalanceSearch('');
+    setBalanceSearchResults([]);
+    setNewAvailableBalance('');
+    setNewPendingBalance('');
+    setAdjustReason('');
+    setAdjustError('');
+    setAdjustSuccess('');
+  };
+
+  const handleAdjustBalance = async () => {
+    if (!balanceUser || !adjustReason.trim()) return;
+    setAdjustSaving(true);
+    setAdjustError('');
+    setAdjustSuccess('');
+    try {
+      const res = await AdminService.adjustUserWallet(balanceUser.id, {
+        availableBalance: newAvailableBalance !== '' ? parseFloat(newAvailableBalance) : undefined,
+        pendingBalance: newPendingBalance !== '' ? parseFloat(newPendingBalance) : undefined,
+        reason: adjustReason.trim(),
+      });
+      setWallet(res?.wallet || wallet);
+      setAdjustReason('');
+      setAdjustSuccess('Balance updated.');
+    } catch (err: any) {
+      setAdjustError(err.message || 'Failed to adjust balance.');
+    } finally {
+      setAdjustSaving(false);
     }
   };
 
@@ -175,6 +259,100 @@ const FinanceHub: React.FC = () => {
             </ResponsiveContainer>
           )}
         </div>
+      </div>
+
+      {/* Manage Artist Balance */}
+      <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-dark-800 p-6 shadow-sm">
+        <h3 className="text-lg font-black mb-4 text-slate-900 dark:text-white flex items-center gap-2">
+          <span className="material-symbols-outlined text-brand-500">account_balance_wallet</span>
+          Manage Artist Balance
+        </h3>
+
+        {!balanceUser ? (
+          <div className="max-w-md">
+            <input
+              type="text"
+              value={balanceSearch}
+              onChange={(e) => searchBalanceUser(e.target.value)}
+              placeholder="Search artist by name or email..."
+              className="w-full bg-slate-50 dark:bg-input-dark border border-slate-200 dark:border-dark-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 text-slate-900 dark:text-white"
+            />
+            {searchingBalanceUser && <p className="text-xs text-slate-400 mt-1">Searching...</p>}
+            {!searchingBalanceUser && balanceSearchResults.length > 0 && (
+              <div className="mt-1 border border-slate-200 dark:border-dark-800 rounded-lg divide-y divide-slate-100 dark:divide-dark-800 max-h-40 overflow-y-auto">
+                {balanceSearchResults.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => selectBalanceUser(u)}
+                    className="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-dark-800 transition-colors"
+                  >
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{u.name}</p>
+                    <p className="text-xs text-slate-400">{u.email}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="max-w-xl space-y-4">
+            <div className="flex items-center justify-between bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 rounded-lg px-3 py-2">
+              <span className="text-sm font-bold text-brand-700 dark:text-brand-400">{balanceUser.name}</span>
+              <button onClick={clearBalancePanel} className="text-slate-400 hover:text-rose-500">
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+
+            {walletLoading ? (
+              <p className="text-sm text-slate-400">Loading wallet...</p>
+            ) : wallet ? (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Available Balance</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newAvailableBalance}
+                      onChange={(e) => setNewAvailableBalance(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-input-dark border border-slate-200 dark:border-dark-700 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:border-brand-500 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Pending Balance</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newPendingBalance}
+                      onChange={(e) => setNewPendingBalance(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-input-dark border border-slate-200 dark:border-dark-700 rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:border-brand-500 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Reason (required, kept in the audit log)</label>
+                  <input
+                    type="text"
+                    value={adjustReason}
+                    onChange={(e) => setAdjustReason(e.target.value)}
+                    placeholder="e.g. Correcting a royalty calculation error"
+                    className="w-full bg-slate-50 dark:bg-input-dark border border-slate-200 dark:border-dark-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 text-slate-900 dark:text-white"
+                  />
+                </div>
+                {adjustError && <p className="text-xs text-rose-500 font-bold">{adjustError}</p>}
+                {adjustSuccess && <p className="text-xs text-emerald-500 font-bold">{adjustSuccess}</p>}
+                <button
+                  onClick={handleAdjustBalance}
+                  disabled={!adjustReason.trim() || adjustSaving}
+                  className="px-5 py-2 rounded-lg text-sm font-bold bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50"
+                >
+                  {adjustSaving ? 'Saving...' : 'Save Balance'}
+                </button>
+              </>
+            ) : (
+              <p className="text-sm text-rose-500">{adjustError || 'This user has no wallet yet.'}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Payouts Queue */}

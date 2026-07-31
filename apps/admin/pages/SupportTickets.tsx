@@ -50,6 +50,31 @@ const SupportTickets: React.FC = () => {
   const [replyText, setReplyText] = useState('');
   const [isInternal, setIsInternal] = useState(false);
   const [sending, setSending] = useState(false);
+  const [staffOptions, setStaffOptions] = useState<{ id: string; name: string }[]>([]);
+
+  const [showNewTicketModal, setShowNewTicketModal] = useState(false);
+  const [artistSearch, setArtistSearch] = useState('');
+  const [artistResults, setArtistResults] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [searchingArtists, setSearchingArtists] = useState(false);
+  const [selectedArtist, setSelectedArtist] = useState<{ id: string; name: string } | null>(null);
+  const [newTicketSubject, setNewTicketSubject] = useState('');
+  const [newTicketMessage, setNewTicketMessage] = useState('');
+  const [creatingTicket, setCreatingTicket] = useState(false);
+  const [newTicketError, setNewTicketError] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [support, admins] = await Promise.all([
+          AdminService.getUsers({ role: 'SUPPORT', limit: 100 } as any),
+          AdminService.getUsers({ role: 'ADMIN', limit: 100 } as any),
+        ]);
+        setStaffOptions([...(support?.data || []), ...(admins?.data || [])]);
+      } catch {
+        // Non-fatal - the assign dropdown just stays empty if this fails.
+      }
+    })();
+  }, []);
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -107,6 +132,65 @@ const SupportTickets: React.FC = () => {
       fetchTickets();
     } catch (err: any) {
       setError(err.message || 'Failed to update ticket status.');
+    }
+  };
+
+  const handleAssignChange = async (assigneeId: string) => {
+    if (!selectedTicket) return;
+    try {
+      const res = await AdminService.assignTicket(selectedTicket.id, assigneeId || null);
+      setSelectedTicket((prev: any) => (prev ? { ...prev, assignee: res?.ticket?.assignee ?? null } : prev));
+      fetchTickets();
+    } catch (err: any) {
+      setError(err.message || 'Failed to assign ticket.');
+    }
+  };
+
+  const searchArtists = async (query: string) => {
+    setArtistSearch(query);
+    setSelectedArtist(null);
+    if (query.trim().length < 2) {
+      setArtistResults([]);
+      return;
+    }
+    setSearchingArtists(true);
+    try {
+      const res = await AdminService.getUsers({ search: query.trim(), limit: 10 } as any);
+      setArtistResults(res?.data || []);
+    } catch {
+      setArtistResults([]);
+    } finally {
+      setSearchingArtists(false);
+    }
+  };
+
+  const resetNewTicketForm = () => {
+    setArtistSearch('');
+    setArtistResults([]);
+    setSelectedArtist(null);
+    setNewTicketSubject('');
+    setNewTicketMessage('');
+    setNewTicketError('');
+  };
+
+  const handleCreateTicket = async () => {
+    if (!selectedArtist || !newTicketSubject.trim() || !newTicketMessage.trim()) return;
+    setCreatingTicket(true);
+    setNewTicketError('');
+    try {
+      const res = await AdminService.createTicketForUser({
+        userId: selectedArtist.id,
+        subject: newTicketSubject.trim(),
+        message: newTicketMessage.trim(),
+      });
+      setShowNewTicketModal(false);
+      resetNewTicketForm();
+      await fetchTickets();
+      if (res?.ticket) openTicket(res.ticket);
+    } catch (err: any) {
+      setNewTicketError(err.message || 'Failed to create ticket.');
+    } finally {
+      setCreatingTicket(false);
     }
   };
 
@@ -190,6 +274,13 @@ const SupportTickets: React.FC = () => {
                   <p className="text-2xl font-black text-slate-900 dark:text-white">{loading ? '—' : unassignedCount}</p>
                 </div>
               </div>
+              <button
+                onClick={() => setShowNewTicketModal(true)}
+                className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-colors shrink-0"
+              >
+                <span className="material-symbols-outlined text-lg">add_comment</span>
+                New Ticket
+              </button>
             </div>
 
             {/* Categories Filter */}
@@ -286,7 +377,16 @@ const SupportTickets: React.FC = () => {
             </div>
             <h2 className="text-xl font-black mb-1 text-slate-900 dark:text-white">{selectedTicket.subject}</h2>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-slate-500">{selectedTicket.assignee ? `Assigned to ${selectedTicket.assignee.name}` : 'Unassigned'}</span>
+              <select
+                value={selectedTicket.assignee?.id || ''}
+                onChange={(e) => handleAssignChange(e.target.value)}
+                className="text-xs font-bold bg-white dark:bg-card-dark border border-slate-200 dark:border-dark-800 rounded-lg px-2 py-1 focus:outline-none focus:border-brand-500"
+              >
+                <option value="">Unassigned</option>
+                {staffOptions.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
               <select
                 value={selectedTicket.status}
                 onChange={(e) => handleStatusChange(e.target.value)}
@@ -380,6 +480,105 @@ const SupportTickets: React.FC = () => {
             </label>
           </div>
         </aside>
+      )}
+
+      {/* New Ticket Modal */}
+      {showNewTicketModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-card-dark rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-200 dark:border-dark-800 flex items-center justify-between">
+              <h2 className="text-lg font-black text-slate-900 dark:text-white">Start a new ticket</h2>
+              <button
+                onClick={() => { setShowNewTicketModal(false); resetNewTicketForm(); }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Artist or Label</label>
+                {selectedArtist ? (
+                  <div className="flex items-center justify-between bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 rounded-lg px-3 py-2">
+                    <span className="text-sm font-bold text-brand-700 dark:text-brand-400">{selectedArtist.name}</span>
+                    <button onClick={() => setSelectedArtist(null)} className="text-slate-400 hover:text-rose-500">
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      value={artistSearch}
+                      onChange={(e) => searchArtists(e.target.value)}
+                      placeholder="Search by name or email..."
+                      className="w-full bg-slate-50 dark:bg-input-dark border border-slate-200 dark:border-dark-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 text-slate-900 dark:text-white"
+                    />
+                    {searchingArtists && <p className="text-xs text-slate-400 mt-1">Searching...</p>}
+                    {!searchingArtists && artistResults.length > 0 && (
+                      <div className="mt-1 border border-slate-200 dark:border-dark-800 rounded-lg divide-y divide-slate-100 dark:divide-dark-800 max-h-40 overflow-y-auto">
+                        {artistResults.map((a) => (
+                          <button
+                            key={a.id}
+                            onClick={() => setSelectedArtist(a)}
+                            className="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-dark-800 transition-colors"
+                          >
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">{a.name}</p>
+                            <p className="text-xs text-slate-400">{a.email}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Subject</label>
+                <input
+                  type="text"
+                  value={newTicketSubject}
+                  onChange={(e) => setNewTicketSubject(e.target.value)}
+                  placeholder="e.g. Follow-up on your release"
+                  className="w-full bg-slate-50 dark:bg-input-dark border border-slate-200 dark:border-dark-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Message</label>
+                <textarea
+                  value={newTicketMessage}
+                  onChange={(e) => setNewTicketMessage(e.target.value)}
+                  placeholder="Type your message to the artist..."
+                  className="w-full bg-slate-50 dark:bg-input-dark border border-slate-200 dark:border-dark-700 rounded-lg px-3 py-2 text-sm min-h-[100px] resize-none focus:outline-none focus:border-brand-500 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {newTicketError && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-3 py-2 rounded-lg text-xs">
+                  {newTicketError}
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-slate-200 dark:border-dark-800 flex justify-end gap-3">
+              <button
+                onClick={() => { setShowNewTicketModal(false); resetNewTicketForm(); }}
+                className="px-4 py-2 rounded-lg text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateTicket}
+                disabled={!selectedArtist || !newTicketSubject.trim() || !newTicketMessage.trim() || creatingTicket}
+                className="px-5 py-2 rounded-lg text-sm font-bold bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50"
+              >
+                {creatingTicket ? 'Sending...' : 'Send'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

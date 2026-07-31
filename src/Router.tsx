@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute, AdminRoute, ArtistRoute, PublicOnlyRoute } from './components/ProtectedRoute';
+import AnnouncementBanner from '../components/AnnouncementBanner';
 import { APP_MODE } from './utils/subdomain';
 
 // ===========================================
@@ -33,12 +34,14 @@ const PrivacyPolicy = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/Privacy
 const TermsOfService = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/TermsOfService')) : null) as any;
 const MarketingSupport = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/Support')) : null) as any;
 const ShareTestimonial = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/ShareTestimonial')) : null) as any;
+const Talent = (NEEDS_MAIN ? lazy(() => import('../apps/marketing/Talent')) : null) as any;
 
 // Shared auth pages — needed by all three apps (main, artist, admin).
 const Login = lazy(() => import('../apps/auth/Login'));
 const Register = lazy(() => import('../apps/auth/Register'));
 const ForgotPassword = lazy(() => import('../apps/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('../apps/auth/ResetPassword'));
+const VerifyEmail = lazy(() => import('../apps/auth/VerifyEmail'));
 
 // Artist dashboard — needed by "main" (embeds /dashboard) and the "artist" build.
 const ArtistDashboard = (NEEDS_ARTIST ? lazy(() => import('../apps/artist/Dashboard')) : null) as any;
@@ -79,6 +82,7 @@ const ArtistAppRoutes: React.FC = () => (
     <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
     <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
     <Route path="/reset-password" element={<PublicOnlyRoute><ResetPassword /></PublicOnlyRoute>} />
+    <Route path="/verify-email" element={<VerifyEmail />} />
     <Route
       path="/*"
       element={
@@ -97,6 +101,7 @@ const AdminAppRoutes: React.FC = () => (
     <Route path="/register" element={<Navigate to="/login" replace />} />
     <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
     <Route path="/reset-password" element={<PublicOnlyRoute><ResetPassword /></PublicOnlyRoute>} />
+    <Route path="/verify-email" element={<VerifyEmail />} />
     <Route
       path="/*"
       element={
@@ -118,6 +123,7 @@ const MainAppRoutes: React.FC = () => (
     <Route path="/terms" element={<TermsOfService />} />
     <Route path="/support" element={<MarketingSupport />} />
     <Route path="/share/:artistId" element={<ShareTestimonial />} />
+    <Route path="/talent" element={<Talent />} />
 
     <Route
       path="/login"
@@ -137,6 +143,7 @@ const MainAppRoutes: React.FC = () => (
     />
     <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
     <Route path="/reset-password" element={<PublicOnlyRoute><ResetPassword /></PublicOnlyRoute>} />
+    <Route path="/verify-email" element={<VerifyEmail />} />
 
     <Route
       path="/dashboard/*"
@@ -170,6 +177,7 @@ const AppRouter: React.FC = () => {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
+          <AnnouncementBanner />
           <Suspense fallback={<PageLoader />}>
             {APP_MODE === 'artist' && <ArtistAppRoutes />}
             {APP_MODE === 'admin' && <AdminAppRoutes />}

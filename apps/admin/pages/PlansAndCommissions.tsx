@@ -38,8 +38,11 @@ const PlansAndCommissions: React.FC = () => {
   useEffect(() => {
     (async () => {
       try {
+        // AdminService.getSettings() returns Record<key, { value, description }>
+        // (see src/services/api.ts) — the setting's actual payload lives at
+        // `.value`, not nested under a `.settings` wrapper.
         const res = await AdminService.getSettings();
-        const saved = res?.settings?.[SETTINGS_KEY];
+        const saved = res?.[SETTINGS_KEY]?.value as typeof INITIAL_STATE | undefined;
         if (saved) {
           setState(saved);
           setInitialState(saved);

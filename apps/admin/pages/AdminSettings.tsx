@@ -11,9 +11,12 @@ const AdminSettings: React.FC = () => {
     useEffect(() => {
         (async () => {
             try {
+                // AdminService.getSettings() returns Record<key, { value, description }>
+                // (see src/services/api.ts) — the setting's actual payload lives at
+                // `.value`, not nested under a `.settings` wrapper.
                 const res = await AdminService.getSettings();
-                if (res?.settings?.maintenance_mode !== undefined) setMaintenanceMode(!!res.settings.maintenance_mode);
-                if (res?.settings?.allow_registrations !== undefined) setAllowRegistrations(!!res.settings.allow_registrations);
+                if (res?.maintenance_mode?.value !== undefined) setMaintenanceMode(!!res.maintenance_mode.value);
+                if (res?.allow_registrations?.value !== undefined) setAllowRegistrations(!!res.allow_registrations.value);
             } catch (err: any) {
                 setError(err.message || 'Failed to load system settings.');
             } finally {
