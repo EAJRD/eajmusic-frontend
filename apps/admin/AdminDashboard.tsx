@@ -207,8 +207,11 @@ const AdminDashboard: React.FC = () => {
         {renderContent()}
       </main>
 
-      {/* Connection Status Indicator */}
-      <ConnectionStatusBadge position="bottom-right" showText={true} />
+      {/* Connection Status Indicator - top-right, not bottom-right: several
+          admin pages (Finance Hub, Plans & Commissions) render a fixed
+          bottom-0 save bar, and a bottom-right badge sits on top of it,
+          silently eating clicks on the Save button underneath. */}
+      <ConnectionStatusBadge position="top-right" showText={true} />
     </div>
   );
 };
