@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Logo } from '../../components/Icons';
+import OAuthButtons from './OAuthButtons';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -318,6 +319,8 @@ const Register: React.FC = () => {
             </p>
           </div>
         </form>
+
+        <OAuthButtons accountType={formData.accountType} label="Sign up" />
           </>
         )}
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Logo } from '../../components/Icons';
+import OAuthButtons from './OAuthButtons';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -128,6 +129,8 @@ const Login: React.FC = () => {
             </button>
           </div>
         </form>
+
+        <OAuthButtons label="Sign in" />
 
         <div className="text-center mt-4">
           <Link

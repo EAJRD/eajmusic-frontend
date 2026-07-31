@@ -13,7 +13,9 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  oAuthProviders: string[];
   login: (email: string, password: string) => Promise<AuthResult>;
+  loginWithOAuth: (provider: string, accountType?: string) => Promise<AuthResult>;
   register: (name: string, email: string, password: string, accountType?: string) => Promise<AuthResult>;
   verifyEmailCode: (email: string, otp: string, name?: string, accountType?: string) => Promise<AuthResult>;
   resendVerificationCode: (email: string) => Promise<AuthResult>;
@@ -22,6 +24,9 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
+
+const OAUTH_VERIFIER_KEY = 'eajmusic_oauth_verifier';
+const OAUTH_ACCOUNT_TYPE_KEY = 'eajmusic_oauth_account_type';
 
 interface MeResponse {
   user?: User;
@@ -60,12 +65,49 @@ function errorMessage(error: any, fallback: string): string {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [oAuthProviders, setOAuthProviders] = useState<string[]>([]);
 
   // Session persistence across reloads never touches InsForge - this API's
   // own httpOnly cookie (set by syncInsforgeUser at login/signup time) is
-  // the ongoing source of truth, exactly as before.
+  // the ongoing source of truth, exactly as before. The one exception is
+  // landing back from an OAuth redirect (?insforge_code=...): InsForge's SDK
+  // never exposes a reusable access token after the fact, so that one-time
+  // code has to be exchanged and synced right here, on the page it redirects
+  // back to (see loginWithOAuth below).
   useEffect(() => {
-    const checkAuth = async () => {
+    const init = async () => {
+      try {
+        const { data } = await insforge.auth.getPublicAuthConfig();
+        setOAuthProviders((data as any)?.oAuthProviders || []);
+      } catch {
+        // Non-fatal - OAuth buttons just won't render.
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('insforge_code');
+      if (code) {
+        const codeVerifier = sessionStorage.getItem(OAUTH_VERIFIER_KEY) || undefined;
+        const accountType = sessionStorage.getItem(OAUTH_ACCOUNT_TYPE_KEY) || 'ARTIST';
+        sessionStorage.removeItem(OAUTH_VERIFIER_KEY);
+        sessionStorage.removeItem(OAUTH_ACCOUNT_TYPE_KEY);
+
+        params.delete('insforge_code');
+        const cleanQuery = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (cleanQuery ? `?${cleanQuery}` : '') + window.location.hash);
+
+        try {
+          const { data, error } = await insforge.auth.exchangeOAuthCode(code, codeVerifier);
+          if (!error && data?.accessToken) {
+            const syncedUser = await syncInsforgeUser(data.accessToken, { accountType });
+            setUser(syncedUser);
+            setIsLoading(false);
+            return;
+          }
+        } catch {
+          // Fall through to the normal /auth/me check below.
+        }
+      }
+
       try {
         const response = await api.get<MeResponse>('/auth/me');
         setUser(response?.user || null);
@@ -76,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    checkAuth();
+    init();
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<AuthResult> => {
@@ -99,6 +141,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     } catch (error: any) {
       return { success: false, error: errorMessage(error, 'Login failed') };
+    }
+  }, []);
+
+  // Manual PKCE flow (not the SDK's automatic in-browser detection): the
+  // automatic flow never surfaces the resulting accessToken to app code, and
+  // sync-insforge-user needs that token. skipBrowserRedirect gets us
+  // {url, codeVerifier} instead of an immediate redirect; codeVerifier is
+  // stashed in sessionStorage (survives the full-page navigation to the
+  // provider and back) and consumed by the exchange in the effect above.
+  const loginWithOAuth = useCallback(async (provider: string, accountType: string = 'ARTIST'): Promise<AuthResult> => {
+    try {
+      const redirectTo = `${window.location.origin}/login`;
+      const { data, error } = await insforge.auth.signInWithOAuth(provider, {
+        redirectTo,
+        skipBrowserRedirect: true,
+      });
+
+      if (error || !data?.url) {
+        return { success: false, error: error?.message || 'Failed to start sign-in' };
+      }
+
+      if (data.codeVerifier) {
+        sessionStorage.setItem(OAUTH_VERIFIER_KEY, data.codeVerifier);
+      }
+      sessionStorage.setItem(OAUTH_ACCOUNT_TYPE_KEY, accountType);
+
+      window.location.href = data.url;
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: errorMessage(error, 'Failed to start sign-in') };
     }
   }, []);
 
@@ -213,7 +285,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     isAuthenticated: !!user,
     isLoading,
+    oAuthProviders,
     login,
+    loginWithOAuth,
     register,
     verifyEmailCode,
     resendVerificationCode,
