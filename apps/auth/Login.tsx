@@ -6,7 +6,6 @@ import { Logo } from '../../components/Icons';
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -22,10 +21,12 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const result = await login(email, password, rememberMe);
+      const result = await login(email, password);
 
       if (result.success) {
         navigate(from, { replace: true });
+      } else if (result.requireEmailVerification) {
+        navigate(`/verify-email?email=${encodeURIComponent(email)}`);
       } else {
         setError(result.error || 'Login failed. Please try again.');
       }
@@ -99,24 +100,7 @@ const Login: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 text-brand-600 focus:ring-brand-500 border-slate-300 rounded"
-              />
-              <label
-                htmlFor="remember-me"
-                className="ml-2 block text-sm text-slate-900 dark:text-slate-300"
-              >
-                Remember me
-              </label>
-            </div>
-
+          <div className="flex items-center justify-end">
             <div className="text-sm">
               <Link
                 to="/forgot-password"

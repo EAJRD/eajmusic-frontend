@@ -2,10 +2,8 @@
 
 interface ImportMetaEnv {
     readonly VITE_API_URL: string;
-    readonly VITE_SUPABASE_URL: string;
-    readonly VITE_SUPABASE_ANON_KEY: string;
-    readonly VITE_DB_TIMEOUT_MS: string;
-    readonly VITE_HEALTH_CHECK_INTERVAL_MS: string;
+    readonly VITE_INSFORGE_URL: string;
+    readonly VITE_INSFORGE_ANON_KEY: string;
 }
 
 interface ImportMeta {

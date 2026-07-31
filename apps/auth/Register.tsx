@@ -15,7 +15,14 @@ const Register: React.FC = () => {
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  const { register } = useAuth();
+  // Registration itself creates the account; a second step (6-digit email
+  // code) is required before it's usable, per InsForge's requireEmailVerification.
+  const [step, setStep] = useState<'form' | 'verify'>('form');
+  const [otp, setOtp] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
+
+  const { register, verifyEmailCode, resendVerificationCode } = useAuth();
   const navigate = useNavigate();
 
   const validateForm = (): boolean => {
@@ -61,7 +68,9 @@ const Register: React.FC = () => {
         formData.accountType
       );
 
-      if (result.success) {
+      if (result.success && result.requireEmailVerification) {
+        setStep('verify');
+      } else if (result.success) {
         navigate('/dashboard', { replace: true });
       } else {
         setError(result.error || 'Registration failed. Please try again.');
@@ -70,6 +79,35 @@ const Register: React.FC = () => {
       setError(err.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const result = await verifyEmailCode(formData.email, otp, formData.name, formData.accountType);
+      if (result.success) {
+        navigate('/dashboard', { replace: true });
+      } else {
+        setError(result.error || 'Invalid or expired code.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResending(true);
+    setResendMessage('');
+    try {
+      const result = await resendVerificationCode(formData.email);
+      setResendMessage(result.success ? 'Code sent. Check your inbox.' : (result.error || 'Failed to resend code.'));
+    } finally {
+      setResending(false);
     }
   };
 
@@ -108,6 +146,43 @@ const Register: React.FC = () => {
           </div>
         )}
 
+        {step === 'verify' ? (
+          <form className="mt-8 space-y-6" onSubmit={handleVerify}>
+            <p className="text-sm text-slate-600 dark:text-slate-400 text-center">
+              Enter the 6-digit code we sent to <span className="font-bold">{formData.email}</span>.
+            </p>
+            <div>
+              <label htmlFor="otp" className="sr-only">Verification code</label>
+              <input
+                id="otp"
+                name="otp"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                className="appearance-none relative block w-full px-3 py-3 border border-slate-300 dark:border-slate-700 placeholder-slate-500 text-slate-900 dark:text-white dark:bg-input-dark rounded-lg text-center tracking-[0.5em] text-lg font-black focus:outline-none focus:ring-brand-500 focus:border-brand-500"
+                placeholder="000000"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading || otp.length !== 6}
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-all shadow-lg shadow-brand-500/30 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Verifying...' : 'Verify & Continue'}
+            </button>
+            <div className="text-center">
+              {resendMessage && <p className="text-xs text-slate-500 mb-2">{resendMessage}</p>}
+              <button type="button" onClick={handleResend} disabled={resending} className="text-sm font-bold text-brand-600 hover:text-brand-500 disabled:opacity-50">
+                {resending ? 'Sending...' : "Didn't get a code? Resend"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
         <div className="grid grid-cols-2 gap-4">
           <button
             type="button"
@@ -243,6 +318,8 @@ const Register: React.FC = () => {
             </p>
           </div>
         </form>
+          </>
+        )}
 
         <div className="text-center mt-2">
           <Link

@@ -1,67 +1,76 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api } from '../services/api';
+import { api, API_BASE_URL } from '../services/api';
+import { insforge } from '../lib/insforge';
 import type { User } from '../types/api';
+
+interface AuthResult {
+  success: boolean;
+  error?: string;
+  requireEmailVerification?: boolean;
+}
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
-  register: (name: string, email: string, password: string, accountType?: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  register: (name: string, email: string, password: string, accountType?: string) => Promise<AuthResult>;
+  verifyEmailCode: (email: string, otp: string, name?: string, accountType?: string) => Promise<AuthResult>;
+  resendVerificationCode: (email: string) => Promise<AuthResult>;
+  forgotPassword: (email: string) => Promise<AuthResult>;
+  resetPasswordWithCode: (email: string, code: string, newPassword: string) => Promise<AuthResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
-interface AuthResponse {
-  success?: boolean;
-  accessToken?: string;
-  refreshToken?: string;
+interface MeResponse {
   user?: User;
-  error?: string;
-  message?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Token management
-const TOKEN_KEY = 'eajmusic_token';
-const REFRESH_TOKEN_KEY = 'eajmusic_refresh_token';
+// InsForge (https://insforge.dev) is the credential front door - signup,
+// login, OAuth, email verification, and password reset all happen there via
+// @insforge/sdk. The moment any of those flows yields a fresh InsForge
+// accessToken, it's exchanged here for this API's own httpOnly session
+// cookies (POST /auth/sync-insforge-user) - everything else (session
+// persistence via /auth/me, RBAC, every other API call) is completely
+// unchanged from before.
+async function syncInsforgeUser(insforgeAccessToken: string, extra?: { name?: string; accountType?: string }): Promise<User> {
+  const res = await fetch(`${API_BASE_URL}/auth/sync-insforge-user`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${insforgeAccessToken}`,
+    },
+    body: JSON.stringify(extra || {}),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.user) {
+    throw new Error(data.message || data.error || 'Failed to sync account');
+  }
+  return data.user as User;
+}
 
-export const getStoredToken = (): string | null => {
-  return localStorage.getItem(TOKEN_KEY);
-};
+function errorMessage(error: any, fallback: string): string {
+  return error?.message || fallback;
+}
 
-export const setStoredTokens = (accessToken: string, refreshToken: string): void => {
-  localStorage.setItem(TOKEN_KEY, accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-};
-
-export const clearStoredTokens = (): void => {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-};
-
-// Provider Component
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check authentication status on mount.
-  // Auth is now cookie-based (httpOnly eajmusic_token, sent automatically by
-  // the browser), so we can no longer gate this on a localStorage token -
-  // the cookie may exist even with an empty/cleared localStorage, and vice
-  // versa. Always ask the backend via /auth/me; it's the source of truth.
+  // Session persistence across reloads never touches InsForge - this API's
+  // own httpOnly cookie (set by syncInsforgeUser at login/signup time) is
+  // the ongoing source of truth, exactly as before.
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await api.get<AuthResponse>('/auth/me');
-        if (response && response.user) {
-          setUser(response.user);
-        } else {
-          clearStoredTokens();
-        }
-      } catch (error) {
-        clearStoredTokens();
+        const response = await api.get<MeResponse>('/auth/me');
+        setUser(response?.user || null);
+      } catch {
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -70,66 +79,129 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
-  // Login
-  const login = useCallback(async (email: string, password: string, rememberMe: boolean = false) => {
+  const login = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     try {
-      const response = await api.post<AuthResponse>('/auth/login', { email, password, rememberMe });
+      const { data, error } = await insforge.auth.signInWithPassword({ email, password });
 
-      // Cookies set by the backend response are what authenticate subsequent
-      // requests now. accessToken/refreshToken in the body are only stored
-      // as a harmless fallback; success is determined by getting a user back.
-      if (response && response.user) {
-        if (response.accessToken && response.refreshToken) {
-          setStoredTokens(response.accessToken, response.refreshToken);
+      if (error) {
+        if (error.statusCode === 403) {
+          return { success: false, error: 'Please verify your email address to continue.', requireEmailVerification: true };
         }
-        setUser(response.user);
-        return { success: true };
+        return { success: false, error: error.message || 'Invalid email or password' };
       }
 
-      return { success: false, error: response?.error || response?.message || 'Login failed' };
+      if (!data?.accessToken) {
+        return { success: false, error: 'Login failed' };
+      }
+
+      const syncedUser = await syncInsforgeUser(data.accessToken);
+      setUser(syncedUser);
+      return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message || 'Login failed' };
+      return { success: false, error: errorMessage(error, 'Login failed') };
     }
   }, []);
 
-  // Register
-  const register = useCallback(async (name: string, email: string, password: string, accountType: string = 'ARTIST') => {
+  const register = useCallback(async (name: string, email: string, password: string, accountType: string = 'ARTIST'): Promise<AuthResult> => {
     try {
-      const response = await api.post<AuthResponse>('/auth/register', { name, email, password, accountType });
+      const { data, error } = await insforge.auth.signUp({ email, password, name });
 
-      // Same as login: the cookie is the real auth mechanism, the body's
-      // tokens are just a fallback.
-      if (response && response.user) {
-        if (response.accessToken && response.refreshToken) {
-          setStoredTokens(response.accessToken, response.refreshToken);
-        }
-        setUser(response.user);
+      if (error) {
+        return { success: false, error: error.message || 'Registration failed' };
+      }
+
+      if (data?.requireEmailVerification) {
+        return { success: true, requireEmailVerification: true };
+      }
+
+      if (data?.accessToken) {
+        const syncedUser = await syncInsforgeUser(data.accessToken, { name, accountType });
+        setUser(syncedUser);
         return { success: true };
       }
 
-      return { success: false, error: response?.error || response?.message || 'Registration failed' };
+      return { success: false, error: 'Registration failed' };
     } catch (error: any) {
-      return { success: false, error: error.message || 'Registration failed' };
+      return { success: false, error: errorMessage(error, 'Registration failed') };
     }
   }, []);
 
-  // Logout
+  const verifyEmailCode = useCallback(async (email: string, otp: string, name?: string, accountType?: string): Promise<AuthResult> => {
+    try {
+      const { data, error } = await insforge.auth.verifyEmail({ email, otp });
+
+      if (error) {
+        return { success: false, error: error.message || 'Invalid or expired code' };
+      }
+      if (!data?.accessToken) {
+        return { success: false, error: 'Verification failed' };
+      }
+
+      const syncedUser = await syncInsforgeUser(data.accessToken, { name, accountType });
+      setUser(syncedUser);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: errorMessage(error, 'Verification failed') };
+    }
+  }, []);
+
+  const resendVerificationCode = useCallback(async (email: string): Promise<AuthResult> => {
+    try {
+      const { error } = await insforge.auth.resendVerificationEmail({ email });
+      if (error) return { success: false, error: error.message || 'Failed to resend code' };
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: errorMessage(error, 'Failed to resend code') };
+    }
+  }, []);
+
+  const forgotPassword = useCallback(async (email: string): Promise<AuthResult> => {
+    try {
+      const { error } = await insforge.auth.sendResetPasswordEmail({ email });
+      if (error) return { success: false, error: error.message || 'Failed to send reset code' };
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: errorMessage(error, 'Failed to send reset code') };
+    }
+  }, []);
+
+  const resetPasswordWithCode = useCallback(async (email: string, code: string, newPassword: string): Promise<AuthResult> => {
+    try {
+      const { data: exchangeData, error: exchangeError } = await insforge.auth.exchangeResetPasswordToken({ email, code });
+      if (exchangeError || !exchangeData?.token) {
+        return { success: false, error: exchangeError?.message || 'Invalid or expired code' };
+      }
+
+      const { error: resetError } = await insforge.auth.resetPassword({ newPassword, otp: exchangeData.token });
+      if (resetError) {
+        return { success: false, error: resetError.message || 'Failed to reset password' };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: errorMessage(error, 'Failed to reset password') };
+    }
+  }, []);
+
   const logout = useCallback(async () => {
+    try {
+      await insforge.auth.signOut();
+    } catch {
+      // Ignore - still clear the local session below regardless.
+    }
     try {
       await api.post('/auth/logout', {});
     } catch {
       // Ignore errors during logout
     } finally {
-      clearStoredTokens();
       setUser(null);
     }
   }, []);
 
-  // Refresh user data
   const refreshUser = useCallback(async () => {
     try {
-      const response = await api.get<AuthResponse>('/auth/me');
-      if (response && response.user) {
+      const response = await api.get<MeResponse>('/auth/me');
+      if (response?.user) {
         setUser(response.user);
       }
     } catch {
@@ -143,6 +215,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     login,
     register,
+    verifyEmailCode,
+    resendVerificationCode,
+    forgotPassword,
+    resetPasswordWithCode,
     logout,
     refreshUser,
   };
