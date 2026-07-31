@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../src/contexts/AuthContext';
-import { AuthService } from '../../../src/services/api';
+import { AuthService, ArtistService } from '../../../src/services/api';
 
 const PREFS_KEY = 'eajmusic_notification_prefs';
 
@@ -19,6 +19,9 @@ const Settings: React.FC = () => {
     const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
     const [passwordError, setPasswordError] = useState('');
     const [changingPassword, setChangingPassword] = useState(false);
+
+    const currentPlan = user?.subscription?.plan || 'FREE';
+    const [requestingPlan, setRequestingPlan] = useState<string | null>(null);
 
     useEffect(() => {
         try {
@@ -64,6 +67,18 @@ const Settings: React.FC = () => {
             setPasswordError(err.message || 'Failed to update password.');
         } finally {
             setChangingPassword(false);
+        }
+    };
+
+    const handleRequestUpgrade = async (targetPlan: 'PRO' | 'LABEL_PLUS' | 'ENTERPRISE') => {
+        setRequestingPlan(targetPlan);
+        try {
+            await ArtistService.requestPlanUpgrade(targetPlan);
+            showToast(`Solicitud enviada. Nuestro equipo te contactará para completar el upgrade a ${targetPlan}.`);
+        } catch (err: any) {
+            showToast(err.message || 'No pudimos enviar la solicitud. Intenta de nuevo.');
+        } finally {
+            setRequestingPlan(null);
         }
     };
 
@@ -171,6 +186,54 @@ const Settings: React.FC = () => {
                             </form>
                         )}
                     </div>
+                </div>
+
+                {/* Plan Section */}
+                <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm space-y-6">
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                        <span className="material-symbols-outlined text-slate-400">workspace_premium</span> Plan
+                    </h3>
+
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Plan actual</p>
+                            <p className="text-xl font-black">{currentPlan}</p>
+                        </div>
+                        {currentPlan === 'FREE' && (
+                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-3 py-1.5 rounded-lg">
+                                Sellos bloqueados · lanzamientos con 45 días de anticipación
+                            </span>
+                        )}
+                    </div>
+
+                    {currentPlan === 'FREE' ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {(['PRO', 'LABEL_PLUS'] as const).map((plan) => (
+                                <div key={plan} className="border border-slate-200 dark:border-slate-700 rounded-2xl p-5 flex flex-col gap-3">
+                                    <p className="font-black text-lg">{plan === 'PRO' ? 'Pro' : 'Label+'}</p>
+                                    <ul className="text-xs text-slate-500 dark:text-slate-400 space-y-1 flex-1">
+                                        <li>Lanzamientos con solo 21 días de anticipación</li>
+                                        <li>Gestión completa de Sellos</li>
+                                        {plan === 'LABEL_PLUS' && <li>Gestiona múltiples artistas bajo tu sello</li>}
+                                    </ul>
+                                    <button
+                                        onClick={() => handleRequestUpgrade(plan)}
+                                        disabled={requestingPlan !== null}
+                                        className="px-4 py-2 bg-primary text-white font-bold text-sm rounded-lg disabled:opacity-50"
+                                    >
+                                        {requestingPlan === plan ? 'Enviando...' : `Solicitar ${plan === 'PRO' ? 'Pro' : 'Label+'}`}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                            Ya tienes acceso a Sellos y lanzamientos con 21 días de anticipación.{' '}
+                            <button onClick={() => handleRequestUpgrade('ENTERPRISE')} disabled={requestingPlan !== null} className="text-primary font-bold hover:underline disabled:opacity-50">
+                                {requestingPlan === 'ENTERPRISE' ? 'Enviando...' : '¿Necesitas más? Solicita Enterprise'}
+                            </button>
+                        </p>
+                    )}
                 </div>
 
                 {/* Notifications Section */}

@@ -412,6 +412,18 @@ export const ArtistService = {
 
   replyToTicket: (ticketId: string, message: string) =>
     api.post<{ success: boolean }>(`/artist/tickets/${ticketId}/reply`, { message }),
+
+  requestPlanUpgrade: (targetPlan: 'PRO' | 'LABEL_PLUS' | 'ENTERPRISE') =>
+    api.post<{ success: boolean; ticket: SupportTicket }>('/artist/plan/upgrade-request', { targetPlan }),
+
+  completeOnboarding: (data: { artistName: string; dateOfBirth: string; idDocumentUrl: string; idDocumentKey?: string; plan: 'FREE' | 'PRO' | 'LABEL_PLUS' | 'ENTERPRISE' }) =>
+    api.post<{ success: boolean; message: string }>('/artist/onboarding', data),
+
+  createLabelArtist: (data: { email: string; name: string }) =>
+    api.post<{ success: boolean; artist: { id: string; name: string; email: string } }>('/artist/label/artists', data),
+
+  claimLabelArtist: (email: string) =>
+    api.post<{ success: boolean; artist: { id: string; name: string; email: string; avatarUrl: string | null } }>('/artist/label/artists/claim', { email }),
 };
 
 // Admin Service
@@ -525,6 +537,13 @@ export const AdminService = {
 
   moderateTestimonial: (id: string, status: 'APPROVED' | 'REJECTED') =>
     api.patch<{ success: boolean; message: string; testimonial: Testimonial }>(`/admin/testimonials/${id}`, { status }),
+
+  // Contributor identity matches — requires `contributors:approve`.
+  getContributorMatches: () =>
+    api.get<{ matches: Array<{ id: string; contributorName: string; trackIds: string[]; createdAt: string; matchedUser: { id: string; name: string; email: string; avatarUrl: string | null } }> }>('/admin/contributor-matches'),
+
+  resolveContributorMatch: (id: string, action: 'APPROVE' | 'REJECT') =>
+    api.patch<{ success: boolean; message: string }>(`/admin/contributor-matches/${id}`, { action }),
 };
 
 // Public Service (unauthenticated endpoints)
@@ -577,6 +596,9 @@ export const UploadService = {
 
   uploadAvatar: (file: File) =>
     api.upload<{ success: boolean; message?: string; file: { url: string; key: string } }>('/upload/avatar', file),
+
+  uploadIdDocument: (file: File) =>
+    api.upload<{ success: boolean; url: string; key: string }>('/upload/id-document', file),
 
   deleteFile: (type: 'audio' | 'images', filename: string) =>
     api.delete<{ success: boolean }>(`/upload/${type}/${filename}`),

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArtistService, UploadService } from '../../../src/services/api';
+import { useAuth } from '../../../src/contexts/AuthContext';
 
 interface NewReleaseProps {
     onComplete?: () => void;
@@ -8,8 +9,9 @@ interface NewReleaseProps {
 
 const WIZARD_STEPS = [
     { number: 1, label: 'Upload & Details' },
-    { number: 2, label: 'Rights & Splits' },
-    { number: 3, label: 'Review & Submit' },
+    { number: 2, label: 'Additional Details' },
+    { number: 3, label: 'Rights & Splits' },
+    { number: 4, label: 'Review & Submit' },
 ];
 
 // Sonic Dark stepper: outline circle = inactive, solid lime circle + glowing dot = active, lime checkmark = completed.
@@ -47,14 +49,33 @@ const Stepper: React.FC<{ current: number }> = ({ current }) => (
     </div>
 );
 
+// App-style switch, replacing raw checkboxes for binary Yes/No settings.
+const Toggle: React.FC<{ id: string; checked: boolean; onChange: (v: boolean) => void }> = ({ id, checked, onChange }) => (
+    <button
+        id={id}
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-sonic-primary focus:ring-offset-2 focus:ring-offset-sonic-card ${checked ? 'bg-sonic-primary' : 'bg-sonic-border'}`}
+    >
+        <span className={`inline-block size-4 transform rounded-full bg-white shadow transition-transform duration-200 ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+    </button>
+);
+
 const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
+    const { user } = useAuth();
+    const isFreePlan = (user?.subscription?.plan || 'FREE') === 'FREE';
+
     const [step, setStep] = useState(1);
     const [isDragging, setIsDragging] = useState(false);
+    const [stepError, setStepError] = useState('');
 
     // File Upload State
     const [audioFiles, setAudioFiles] = useState<File[]>([]);
     const [coverArt, setCoverArt] = useState<File | null>(null);
     const [coverArtPreview, setCoverArtPreview] = useState<string>('');
+    const [coverArtError, setCoverArtError] = useState('');
 
     // Track-specific metadata (one entry per uploaded file)
     const [trackMetadata, setTrackMetadata] = useState<{
@@ -77,21 +98,24 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
     // Mock Form State
     const [releaseTitle, setReleaseTitle] = useState('');
     const [artistName, setArtistName] = useState('');
-    const [genre, setGenre] = useState('Pop');
+    const [genre, setGenre] = useState('Reggaetón');
 
     // Additional Metadata
     const [releaseType, setReleaseType] = useState('Single');
     const [releaseDate, setReleaseDate] = useState('');
-    const [language, setLanguage] = useState('English');
+    const [language, setLanguage] = useState('Spanish');
     const [recordLabel, setRecordLabel] = useState('');
     const [upc, setUpc] = useState('');
     const [isExplicit, setIsExplicit] = useState(false);
     const [previouslyReleased, setPreviouslyReleased] = useState(false);
 
-    // Step 2 State
-    const [cLineYear, setCLineYear] = useState('2023');
+    // Rights & Splits step state - C/P line years default to the current
+    // year (an artist can still navigate back to an earlier year for an
+    // older recording), not a hardcoded stale year.
+    const currentYear = String(new Date().getFullYear());
+    const [cLineYear, setCLineYear] = useState(currentYear);
     const [cLineName, setCLineName] = useState('');
-    const [pLineYear, setPLineYear] = useState('2023');
+    const [pLineYear, setPLineYear] = useState(currentYear);
     const [pLineName, setPLineName] = useState('');
 
     // Step 3 state
@@ -99,10 +123,14 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
 
-    // Calculate minimum release date (3 weeks from today)
+    // Free accounts need 45 days lead time; Pro (and above) need 21 - matches
+    // the backend's own plan-aware check in POST /artist/releases, this is
+    // just so the calendar doesn't let a Free artist pick a date the server
+    // will reject.
+    const MIN_LEAD_DAYS = isFreePlan ? 45 : 21;
     const getMinReleaseDate = () => {
-        const today = new Date();
-        const minDate = new Date(today.setDate(today.getDate() + 21));
+        const minDate = new Date();
+        minDate.setDate(minDate.getDate() + MIN_LEAD_DAYS);
         return minDate.toISOString().split('T')[0];
     };
 
@@ -131,29 +159,50 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
     };
 
     const updateReleaseType = (trackCount: number) => {
-        if (trackCount === 1) {
+        if (trackCount <= 1) {
             setReleaseType('Single');
-        } else if (trackCount >= 3 && trackCount <= 6) {
+        } else if (trackCount <= 5) {
             setReleaseType('EP');
-        } else if (trackCount > 6) {
-            setReleaseType('Album');
         } else {
-            // 2 tracks - could be single with instrumental, default to Single
-            setReleaseType('Single');
+            setReleaseType('Album');
         }
     };
+
+    const MIN_COVER_PX = 3000;
 
     const handleCoverArtChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            setCoverArt(file);
+            setCoverArtError('');
 
-            // Create preview
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setCoverArtPreview(reader.result as string);
+            if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
+                setCoverArtError('La portada debe ser JPG o PNG.');
+                return;
+            }
+
+            const objectUrl = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                const { naturalWidth: w, naturalHeight: h } = img;
+                URL.revokeObjectURL(objectUrl);
+                if (w !== h) {
+                    setCoverArtError(`La portada debe ser cuadrada (1:1). La imagen que subiste mide ${w}x${h}px.`);
+                    return;
+                }
+                if (w < MIN_COVER_PX) {
+                    setCoverArtError(`La portada es muy pequeña (${w}x${h}px). El mínimo es ${MIN_COVER_PX}x${MIN_COVER_PX}px.`);
+                    return;
+                }
+                setCoverArt(file);
+                const reader = new FileReader();
+                reader.onloadend = () => setCoverArtPreview(reader.result as string);
+                reader.readAsDataURL(file);
             };
-            reader.readAsDataURL(file);
+            img.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                setCoverArtError('No pudimos leer esa imagen. Intenta con otro archivo.');
+            };
+            img.src = objectUrl;
         }
     };
 
@@ -190,7 +239,7 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
         setIsDragging(false);
 
         const droppedFiles: File[] = Array.from(e.dataTransfer.files);
-        const audioFormats = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/flac', 'audio/x-m4a'];
+        const audioFormats = ['audio/wav', 'audio/x-wav', 'audio/flac', 'audio/x-flac'];
         const validFiles = droppedFiles.filter(file => audioFormats.includes(file.type));
 
         if (validFiles.length > 0) {
@@ -198,8 +247,23 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
         }
     };
 
-    const handleNext = () => setStep(prev => prev + 1);
-    const handleBack = () => setStep(prev => prev - 1);
+    const handleNext = () => {
+        setStepError('');
+        if (step === 1) {
+            if (audioFiles.length === 0) return setStepError('Sube al menos un archivo de audio.');
+            if (!coverArt) return setStepError('Sube la portada del lanzamiento.');
+            if (!releaseTitle.trim()) return setStepError('Ingresa el título del lanzamiento.');
+        }
+        if (step === 2) {
+            if (!releaseDate) return setStepError('Elige una fecha de lanzamiento.');
+        }
+        if (step === 3) {
+            const err = validateRightsStep();
+            if (err) return setStepError(err);
+        }
+        setStep(prev => prev + 1);
+    };
+    const handleBack = () => { setStepError(''); setStep(prev => prev - 1); };
 
     // Contributor Handlers
     const addContributor = () => {
@@ -229,8 +293,32 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
         'Primary Artist': 'PRIMARY_ARTIST',
         'Featured Artist': 'FEATURED',
         'Producer': 'PRODUCER',
+        'Co-Producer': 'CO_PRODUCER',
         'Songwriter': 'SONGWRITER',
         'Remixer': 'PRODUCER',
+    };
+
+    // Grupo 4.1: splits must sum to exactly 100%, and only one contributor
+    // may hold "Primary Artist" / "Producer" - additional people in those
+    // roles must be re-categorized as Featured Artist / Co-Producer.
+    const splitsTotal = contributors.reduce((sum, c) => sum + (parseFloat(c.share) || 0), 0);
+    const primaryArtistCount = contributors.filter(c => c.role === 'Primary Artist').length;
+    const producerCount = contributors.filter(c => c.role === 'Producer').length;
+
+    const validateRightsStep = (): string => {
+        if (primaryArtistCount > 1) {
+            return 'Solo puede haber 1 Artista Principal. Cambia a los demás a "Featured Artist".';
+        }
+        if (primaryArtistCount === 0) {
+            return 'Debe haber exactamente 1 Artista Principal.';
+        }
+        if (producerCount > 1) {
+            return 'Solo puede haber 1 Productor principal. Cambia a los demás a "Co-Producer".';
+        }
+        if (Math.round(splitsTotal * 100) / 100 !== 100) {
+            return `Los splits deben sumar exactamente 100% (actualmente suman ${splitsTotal}%).`;
+        }
+        return '';
     };
 
     const handleSubmitRelease = async () => {
@@ -239,7 +327,9 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
         if (audioFiles.length === 0) { setSubmitError('Please upload at least one audio file.'); setStep(1); return; }
         if (!coverArt) { setSubmitError('Please upload cover artwork.'); setStep(1); return; }
         if (!releaseTitle.trim()) { setSubmitError('Please enter a release title.'); setStep(1); return; }
-        if (!releaseDate) { setSubmitError('Please choose a release date.'); setStep(1); return; }
+        if (!releaseDate) { setSubmitError('Please choose a release date.'); setStep(2); return; }
+        const rightsError = validateRightsStep();
+        if (rightsError) { setSubmitError(rightsError); setStep(3); return; }
         if (!agreedToTerms) { setSubmitError('Please confirm you have full rights to this content.'); return; }
 
         setSubmitting(true);
@@ -331,12 +421,12 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                         <span className="material-symbols-outlined text-3xl text-sonic-text-dim group-hover:text-sonic-primary transition-colors">upload_file</span>
                     </div>
                     <h3 className="text-lg font-bold text-sonic-text mb-1">Upload Audio Files</h3>
-                    <p className="text-sm text-sonic-text-dim max-w-xs mx-auto mb-6">Arrastra y suelta tus archivos WAV, FLAC o MP3 aquí, o busca en tu computadora.</p>
+                    <p className="text-sm text-sonic-text-dim max-w-xs mx-auto mb-6">Arrastra y suelta tus archivos WAV o FLAC aquí, o busca en tu computadora. No aceptamos MP3.</p>
 
                     <input
                         ref={audioInputRef}
                         type="file"
-                        accept="audio/mpeg,audio/mp3,audio/wav,audio/flac,audio/x-m4a"
+                        accept="audio/wav,audio/x-wav,audio/flac,audio/x-flac"
                         multiple
                         onChange={handleAudioFileChange}
                         className="hidden"
@@ -437,6 +527,9 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                         <button onClick={() => coverInputRef.current?.click()} className="px-4 py-2 rounded border border-sonic-border text-sonic-text text-xs font-bold hover:border-sonic-primary hover:text-sonic-primary transition-colors">
                             Buscar Imágenes
                         </button>
+                        {coverArtError && (
+                            <p className="text-xs text-sonic-error font-medium mt-2">{coverArtError}</p>
+                        )}
                     </div>
                 </div>
 
@@ -478,6 +571,14 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                                     onChange={(e) => setGenre(e.target.value)}
                                     className="w-full bg-sonic-surface border border-sonic-border rounded px-4 py-2.5 font-medium text-sonic-text focus:outline-none focus:border-sonic-primary focus:ring-1 focus:ring-sonic-primary transition-colors"
                                 >
+                                    <option>Reggaetón</option>
+                                    <option>Trap Latino</option>
+                                    <option>Pop Latino</option>
+                                    <option>Latin Urbano</option>
+                                    <option>Salsa</option>
+                                    <option>Bachata</option>
+                                    <option>Merengue</option>
+                                    <option>Latin</option>
                                     <option>Pop</option>
                                     <option>Rock</option>
                                     <option>Hip Hop/Rap</option>
@@ -486,7 +587,6 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                                     <option>Country</option>
                                     <option>Jazz</option>
                                     <option>Classical</option>
-                                    <option>Latin</option>
                                     <option>Reggae</option>
                                     <option>Metal</option>
                                     <option>Indie</option>
@@ -504,107 +604,103 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                     </div>
                 </div>
 
-                {/* Additional Metadata */}
-                <div className="rounded-lg border border-sonic-border bg-sonic-card p-6">
-                    <h4 className="text-xs font-bold text-sonic-text uppercase tracking-wider mb-4">Additional Details</h4>
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1.5 block">Release Type</label>
-                                <select
-                                    value={releaseType}
-                                    disabled
-                                    className="w-full bg-sonic-surface border border-sonic-border rounded px-4 py-2.5 font-medium text-sonic-text-dim opacity-60 cursor-not-allowed"
-                                >
-                                    <option>Single</option>
-                                    <option>EP</option>
-                                    <option>Album</option>
-                                </select>
-                                <p className="text-[10px] text-sonic-text-dim mt-1">Auto-detected from track count</p>
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1.5 block">Language</label>
-                                <select
-                                    value={language}
-                                    onChange={(e) => setLanguage(e.target.value)}
-                                    className="w-full bg-sonic-surface border border-sonic-border rounded px-4 py-2.5 font-medium text-sonic-text focus:outline-none focus:border-sonic-primary focus:ring-1 focus:ring-sonic-primary transition-colors"
-                                >
-                                    <option>English</option>
-                                    <option>Spanish</option>
-                                    <option>French</option>
-                                    <option>German</option>
-                                    <option>Portuguese</option>
-                                    <option>Italian</option>
-                                    <option>Japanese</option>
-                                    <option>Korean</option>
-                                    <option>Mandarin</option>
-                                    <option>Other</option>
-                                </select>
-                            </div>
+            </div>
+        </div>
+    );
+
+    // Step 2: Additional Details (its own step, not buried in Step 1)
+    const renderStep2 = () => (
+        <div className="max-w-2xl mx-auto">
+            <div className="rounded-lg border border-sonic-border bg-sonic-card p-6">
+                <div className="space-y-5">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1.5 block">Release Type</label>
+                            <select
+                                value={releaseType}
+                                disabled
+                                className="w-full bg-sonic-surface border border-sonic-border rounded px-4 py-2.5 font-medium text-sonic-text-dim opacity-60 cursor-not-allowed"
+                            >
+                                <option>Single</option>
+                                <option>EP</option>
+                                <option>Album</option>
+                            </select>
+                            <p className="text-[10px] text-sonic-text-dim mt-1">Auto-detectado según cantidad de pistas</p>
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1.5 block">Release Date</label>
-                            <input
-                                type="date"
-                                value={releaseDate}
-                                onChange={(e) => setReleaseDate(e.target.value)}
-                                min={getMinReleaseDate()}
+                            <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1.5 block">Idioma</label>
+                            <select
+                                value={language}
+                                onChange={(e) => setLanguage(e.target.value)}
                                 className="w-full bg-sonic-surface border border-sonic-border rounded px-4 py-2.5 font-medium text-sonic-text focus:outline-none focus:border-sonic-primary focus:ring-1 focus:ring-sonic-primary transition-colors"
-                            />
-                            <p className="text-[10px] text-sonic-text-dim mt-1">Minimum 3 weeks from today</p>
+                            >
+                                <option>Spanish</option>
+                                <option>English</option>
+                                <option>French</option>
+                                <option>German</option>
+                                <option>Portuguese</option>
+                                <option>Italian</option>
+                                <option>Japanese</option>
+                                <option>Korean</option>
+                                <option>Mandarin</option>
+                                <option>Other</option>
+                            </select>
                         </div>
-                        <div>
-                            <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1.5 block">Record Label (Optional)</label>
-                            <input
-                                type="text"
-                                value={recordLabel}
-                                onChange={(e) => setRecordLabel(e.target.value)}
-                                className="w-full bg-sonic-surface border border-sonic-border rounded px-4 py-2.5 font-medium text-sonic-text placeholder-sonic-text-dim focus:outline-none focus:border-sonic-primary focus:ring-1 focus:ring-sonic-primary transition-colors"
-                                placeholder="e.g. Independent"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1.5 block">UPC/EAN (Optional)</label>
-                            <input
-                                type="text"
-                                value={upc}
-                                onChange={(e) => setUpc(e.target.value)}
-                                className="w-full bg-sonic-surface border border-sonic-border rounded px-4 py-2.5 font-mono text-sonic-text placeholder-sonic-text-dim focus:outline-none focus:border-sonic-primary focus:ring-1 focus:ring-sonic-primary transition-colors"
-                                placeholder="Leave blank to auto-generate"
-                            />
-                        </div>
-                        <div className="flex items-center gap-3 pt-2">
-                            <input
-                                type="checkbox"
-                                id="explicit"
-                                checked={isExplicit}
-                                onChange={(e) => setIsExplicit(e.target.checked)}
-                                className="size-5 rounded border-sonic-border bg-sonic-surface text-sonic-primary focus:ring-sonic-primary focus:ring-offset-0"
-                            />
-                            <label htmlFor="explicit" className="text-sm font-medium text-sonic-text cursor-pointer">
-                                This release contains explicit content
-                            </label>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <input
-                                type="checkbox"
-                                id="previously-released"
-                                checked={previouslyReleased}
-                                onChange={(e) => setPreviouslyReleased(e.target.checked)}
-                                className="size-5 rounded border-sonic-border bg-sonic-surface text-sonic-primary focus:ring-sonic-primary focus:ring-offset-0"
-                            />
-                            <label htmlFor="previously-released" className="text-sm font-medium text-sonic-text cursor-pointer">
-                                Previously released elsewhere
-                            </label>
-                        </div>
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1.5 block">Release Date</label>
+                        <input
+                            type="date"
+                            value={releaseDate}
+                            onChange={(e) => setReleaseDate(e.target.value)}
+                            min={getMinReleaseDate()}
+                            className="w-full bg-sonic-surface border border-sonic-border rounded px-4 py-2.5 font-medium text-sonic-text focus:outline-none focus:border-sonic-primary focus:ring-1 focus:ring-sonic-primary transition-colors"
+                        />
+                        <p className="text-[10px] text-sonic-text-dim mt-1">
+                            {isFreePlan
+                                ? 'Cuentas Free: mínimo 45 días desde hoy. Sube de plan para reducirlo a 21 días.'
+                                : 'Mínimo 21 días desde hoy.'}
+                        </p>
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1.5 block">Record Label (Optional)</label>
+                        <input
+                            type="text"
+                            value={recordLabel}
+                            onChange={(e) => setRecordLabel(e.target.value)}
+                            className="w-full bg-sonic-surface border border-sonic-border rounded px-4 py-2.5 font-medium text-sonic-text placeholder-sonic-text-dim focus:outline-none focus:border-sonic-primary focus:ring-1 focus:ring-sonic-primary transition-colors"
+                            placeholder="e.g. Independent"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1.5 block">UPC/EAN (Optional)</label>
+                        <input
+                            type="text"
+                            value={upc}
+                            onChange={(e) => setUpc(e.target.value)}
+                            className="w-full bg-sonic-surface border border-sonic-border rounded px-4 py-2.5 font-mono text-sonic-text placeholder-sonic-text-dim focus:outline-none focus:border-sonic-primary focus:ring-1 focus:ring-sonic-primary transition-colors"
+                            placeholder="Leave blank to auto-generate"
+                        />
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-sonic-border">
+                        <label htmlFor="explicit" className="text-sm font-medium text-sonic-text cursor-pointer">
+                            Contenido explícito
+                        </label>
+                        <Toggle id="explicit" checked={isExplicit} onChange={setIsExplicit} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <label htmlFor="previously-released" className="text-sm font-medium text-sonic-text cursor-pointer">
+                            Lanzado previamente en otro lugar
+                        </label>
+                        <Toggle id="previously-released" checked={previouslyReleased} onChange={setPreviouslyReleased} />
                     </div>
                 </div>
             </div>
         </div>
     );
 
-    // Step 2: Rights & Contributors
-    const renderStep2 = () => (
+    // Step 3: Rights & Contributors
+    const renderStep3 = () => (
         <div className="max-w-4xl mx-auto space-y-6">
             {/* Copyright & Licensing */}
             <div className="bg-sonic-card rounded-lg p-6 border border-sonic-border">
@@ -700,6 +796,7 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                                         <option>Primary Artist</option>
                                         <option>Featured Artist</option>
                                         <option>Producer</option>
+                                        <option>Co-Producer</option>
                                         <option>Songwriter</option>
                                         <option>Remixer</option>
                                     </select>
@@ -730,6 +827,11 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                 </div>
             </div>
 
+            <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-bold text-sonic-text-dim uppercase">Total de Splits</span>
+                <span className={`text-sm font-black ${splitsTotal === 100 ? 'text-sonic-primary' : 'text-sonic-error'}`}>{splitsTotal}%</span>
+            </div>
+
             <div className="bg-sonic-error/10 rounded-lg p-4 flex gap-3 border border-sonic-error/20 text-sonic-error">
                 <span className="material-symbols-outlined shrink-0">warning</span>
                 <p className="text-xs leading-relaxed">Please ensure you have cleared all samples. Uploading unlicensed content may result in a permanent ban from the platform.</p>
@@ -737,12 +839,21 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
         </div>
     );
 
-    // Step 3: Review
-    const renderStep3 = () => (
+    // Step 4: Review
+    const renderStep4 = () => (
         <div className="max-w-3xl mx-auto space-y-6">
             <div className="text-center mb-2">
                 <h2 className="text-2xl font-bold text-sonic-text">Revisar</h2>
                 <p className="text-sonic-text-dim">Double check everything before distributing to stores.</p>
+            </div>
+
+            {/* Distribution reach - the payoff moment right before Submit */}
+            <div className="rounded-lg border border-sonic-primary/30 bg-sonic-primary/10 p-5 flex items-center gap-4">
+                <span className="material-symbols-outlined text-sonic-primary text-3xl">public</span>
+                <div>
+                    <p className="text-sonic-text font-black text-base leading-tight">Se distribuirá a más de 200 plataformas digitales globales</p>
+                    <p className="text-sonic-text-dim text-xs mt-0.5">Spotify, Apple Music, Amazon Music, TikTok, YouTube Music y muchas más.</p>
+                </div>
             </div>
 
             {/* Summary Card */}
@@ -813,22 +924,31 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                 <div className="text-center max-w-2xl mx-auto">
                     <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-4 text-sonic-text">
                         {step === 1 && "Let's Get Your Music Out There"}
-                        {step === 2 && "Rights & Contributors"}
-                        {step === 3 && "Final Review"}
+                        {step === 2 && "Additional Details"}
+                        {step === 3 && "Rights & Contributors"}
+                        {step === 4 && "Final Review"}
                     </h1>
                     <p className="text-sonic-text-dim text-lg">
                         {step === 1 && "Upload your audio files and artwork to start the distribution process."}
-                        {step === 2 && "Ensure everyone gets paid correctly. Manage splits and licensing."}
-                        {step === 3 && "You're almost there. Review your metadata and submit to stores."}
+                        {step === 2 && "Language, release date, and a few extra details."}
+                        {step === 3 && "Ensure everyone gets paid correctly. Manage splits and licensing."}
+                        {step === 4 && "You're almost there. Review your metadata and submit to stores."}
                     </p>
                 </div>
             </div>
+
+            {stepError && (
+                <div className="max-w-4xl mx-auto mb-6 bg-sonic-error/10 border border-sonic-error/30 text-sonic-error px-4 py-3 rounded text-sm font-medium text-center">
+                    {stepError}
+                </div>
+            )}
 
             {/* Dynamic Content */}
             <div className="mb-24">
                 {step === 1 && renderStep1()}
                 {step === 2 && renderStep2()}
                 {step === 3 && renderStep3()}
+                {step === 4 && renderStep4()}
             </div>
 
             {/* Bottom Navigation */}
@@ -852,12 +972,12 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                             </button>
                         )}
                         <button
-                            onClick={step === 3 ? handleSubmitRelease : handleNext}
+                            onClick={step === 4 ? handleSubmitRelease : handleNext}
                             disabled={submitting}
                             className="px-8 py-3 md:py-2.5 rounded font-bold text-sm bg-sonic-primary text-sonic-primary-ink hover:brightness-95 transition-all flex items-center justify-center gap-2 w-full md:w-auto disabled:opacity-70"
                         >
-                            {step === 3 ? (submitting ? 'Submitting...' : 'Submit Release') : 'Next Step'}
-                            {step !== 3 && <span className="material-symbols-outlined text-sm">arrow_forward</span>}
+                            {step === 4 ? (submitting ? 'Submitting...' : 'Submit Release') : 'Next Step'}
+                            {step !== 4 && <span className="material-symbols-outlined text-sm">arrow_forward</span>}
                         </button>
                     </div>
                 </div>

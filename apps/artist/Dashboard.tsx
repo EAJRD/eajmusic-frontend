@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { ArtistService, AuthService } from '../../src/services/api';
+import { ArtistService, AuthService, UploadService } from '../../src/services/api';
 import { Logo } from '../../components/Icons';
 import ThemeToggle from '../../components/ThemeToggle';
 import NewRelease from './pages/NewRelease';
@@ -28,9 +28,8 @@ const ArtistDashboard: React.FC = () => {
     navigate('/login', { replace: true });
   };
 
-  // Mock function to simulate a submission completion
   const handleSubmissionComplete = () => {
-    setActiveTab('music');
+    setActiveTab('overview');
     setSelectedReleaseId(null);
     setShowSuccessModal(true);
   };
@@ -445,99 +444,165 @@ const VerifyEmailBanner = () => {
   );
 };
 
-const ONBOARDING_SEEN_KEY = 'eajmusic_onboarding_seen';
+// Mandatory, non-dismissible: shown once, right after account creation,
+// blocking distribution until the artist provides an artistic name,
+// birthdate, an official ID document, and picks a plan. Gated on the
+// backend's own `onboardingCompletedAt` (not a localStorage flag that a
+// cleared browser could bypass) - POST /artist/onboarding + POST
+// /upload/id-document are what actually unblock POST /artist/releases.
+const PLAN_OPTIONS: { value: 'FREE' | 'PRO' | 'LABEL_PLUS'; label: string; desc: string }[] = [
+  { value: 'FREE', label: 'Free', desc: 'Lanzamientos con 45 días de anticipación. Sello fijo EAJMUSIC.' },
+  { value: 'PRO', label: 'Pro', desc: 'Lanzamientos con 21 días de anticipación. Gestión completa de Sellos.' },
+  { value: 'LABEL_PLUS', label: 'Label+', desc: 'Todo lo de Pro, además de gestionar varios artistas bajo tu sello.' },
+];
 
 const OnboardingWizard = () => {
-  const { user } = useAuth();
-  const [visible, setVisible] = useState(false);
-  const [profileId, setProfileId] = useState<string | null>(null);
+  const { user, refreshUser } = useAuth();
   const [step, setStep] = useState(1);
-  const [bio, setBio] = useState('');
+  const [artistName, setArtistName] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [idDocument, setIdDocument] = useState<File | null>(null);
+  const [plan, setPlan] = useState<'FREE' | 'PRO' | 'LABEL_PLUS'>('FREE');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (!user) return;
-    const seenIds = JSON.parse(localStorage.getItem(ONBOARDING_SEEN_KEY) || '[]');
-    if (seenIds.includes(user.id)) return;
+  if (!user || user.role !== 'ARTIST' || user.onboardingCompletedAt) return null;
 
-    (async () => {
-      try {
-        const profiles = await ArtistService.getProfiles();
-        const profile = profiles?.[0];
-        // Only prompt if the profile still looks freshly auto-created
-        // (no bio filled in yet) - an artist who already set one up
-        // shouldn't see this again even if the localStorage flag is lost.
-        if (profile && !(profile as any).bio) {
-          setProfileId(profile.id);
-          setVisible(true);
-        }
-      } catch {
-        // Non-fatal - onboarding just doesn't show.
-      }
-    })();
-  }, [user]);
+  const maxDob = new Date();
+  maxDob.setFullYear(maxDob.getFullYear() - 13);
+  const maxDobStr = maxDob.toISOString().split('T')[0];
 
-  const markSeen = () => {
-    if (!user) return;
-    const seenIds = JSON.parse(localStorage.getItem(ONBOARDING_SEEN_KEY) || '[]');
-    localStorage.setItem(ONBOARDING_SEEN_KEY, JSON.stringify([...seenIds, user.id]));
-    setVisible(false);
+  const goNext = () => {
+    setError('');
+    if (step === 1) {
+      if (!artistName.trim()) return setError('Ingresa tu nombre artístico.');
+      if (!dateOfBirth) return setError('Ingresa tu fecha de nacimiento.');
+      if (dateOfBirth > maxDobStr) return setError('Debes tener al menos 13 años.');
+    }
+    if (step === 2 && !idDocument) return setError('Sube un documento de identificación oficial.');
+    setStep((s) => s + 1);
   };
 
-  const handleSaveBio = async () => {
-    if (!profileId) return;
+  const handleSubmit = async () => {
+    if (!idDocument) return setError('Sube un documento de identificación oficial.');
     setSaving(true);
+    setError('');
     try {
-      await ArtistService.updateProfile(profileId, { bio });
-      setStep(2);
-    } catch {
-      // Non-fatal - they can always fill this in later from the Profile page.
-      setStep(2);
+      const uploaded = await UploadService.uploadIdDocument(idDocument);
+      await ArtistService.completeOnboarding({
+        artistName: artistName.trim(),
+        dateOfBirth,
+        idDocumentUrl: uploaded.url,
+        idDocumentKey: uploaded.key,
+        plan,
+      });
+      await refreshUser();
+    } catch (err: any) {
+      setError(err.message || 'No pudimos completar el onboarding. Intenta de nuevo.');
     } finally {
       setSaving(false);
     }
   };
 
-  if (!visible) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="bg-sonic-card border border-sonic-border rounded-2xl shadow-2xl w-full max-w-md p-8 space-y-6">
-        {step === 1 ? (
+        <div className="flex items-center gap-2">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className={`h-1.5 flex-1 rounded-full ${step >= n ? 'bg-sonic-primary' : 'bg-sonic-border'}`} />
+          ))}
+        </div>
+
+        {error && (
+          <div className="bg-sonic-error/10 border border-sonic-error/30 text-sonic-error px-3 py-2 rounded text-xs font-medium">{error}</div>
+        )}
+
+        {step === 1 && (
           <>
             <div>
-              <h2 className="text-xl font-black text-sonic-text mb-1">Welcome to EAJMUSIC</h2>
-              <p className="text-sm text-sonic-text-dim">Tell listeners a bit about yourself. You can always change this later.</p>
+              <h2 className="text-xl font-black text-sonic-text mb-1">Bienvenido a EAJMUSIC</h2>
+              <p className="text-sm text-sonic-text-dim">Completa tu registro inicial antes de distribuir tu música.</p>
             </div>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="A short artist bio..."
-              className="w-full bg-sonic-elevated border border-sonic-border rounded-lg px-3 py-2 text-sm min-h-[100px] resize-none focus:outline-none focus:border-sonic-primary text-sonic-text"
-            />
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1 block">Nombre Artístico</label>
+                <input
+                  type="text"
+                  value={artistName}
+                  onChange={(e) => setArtistName(e.target.value)}
+                  placeholder="Cómo te conoce tu audiencia"
+                  className="w-full bg-sonic-elevated border border-sonic-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-sonic-primary text-sonic-text"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-sonic-text-dim uppercase mb-1 block">Fecha de Nacimiento</label>
+                <input
+                  type="date"
+                  value={dateOfBirth}
+                  max={maxDobStr}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  className="w-full bg-sonic-elevated border border-sonic-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-sonic-primary text-sonic-text"
+                />
+              </div>
+            </div>
+            <button onClick={goNext} className="w-full px-5 py-2.5 rounded text-sm font-bold bg-sonic-primary text-sonic-primary-ink hover:bg-sonic-primary/90">
+              Continuar
+            </button>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <div>
+              <h2 className="text-xl font-black text-sonic-text mb-1">Verificación de Identidad</h2>
+              <p className="text-sm text-sonic-text-dim">Sube una identificación oficial (JPG, PNG o PDF). Solo la usamos para verificar tu identidad como distribuidor.</p>
+            </div>
+            <label className="flex flex-col items-center justify-center gap-2 border border-dashed border-sonic-border rounded-lg p-6 cursor-pointer hover:border-sonic-primary transition-colors">
+              <span className="material-symbols-outlined text-2xl text-sonic-text-dim">badge</span>
+              <span className="text-xs font-bold text-sonic-text-dim text-center">{idDocument ? idDocument.name : 'Buscar archivo'}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,application/pdf"
+                onChange={(e) => setIdDocument(e.target.files?.[0] || null)}
+                className="hidden"
+              />
+            </label>
             <div className="flex justify-between items-center">
-              <button onClick={markSeen} className="text-sm font-bold text-sonic-text-dim hover:text-sonic-text">Skip for now</button>
-              <button
-                onClick={handleSaveBio}
-                disabled={saving}
-                className="px-5 py-2 rounded text-sm font-bold bg-sonic-primary text-sonic-primary-ink hover:bg-sonic-primary/90 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Continue'}
+              <button onClick={() => setStep(1)} className="text-sm font-bold text-sonic-text-dim hover:text-sonic-text">Atrás</button>
+              <button onClick={goNext} className="px-5 py-2 rounded text-sm font-bold bg-sonic-primary text-sonic-primary-ink hover:bg-sonic-primary/90">
+                Continuar
               </button>
             </div>
           </>
-        ) : (
+        )}
+
+        {step === 3 && (
           <>
             <div>
-              <h2 className="text-xl font-black text-sonic-text mb-1">You're all set</h2>
-              <p className="text-sm text-sonic-text-dim">Add social links and a profile photo anytime from your Profile page.</p>
+              <h2 className="text-xl font-black text-sonic-text mb-1">Elige tu Plan</h2>
+              <p className="text-sm text-sonic-text-dim">Puedes empezar en Free y subir de plan cuando quieras desde Settings.</p>
             </div>
-            <button
-              onClick={markSeen}
-              className="w-full px-5 py-2 rounded text-sm font-bold bg-sonic-primary text-sonic-primary-ink hover:bg-sonic-primary/90"
-            >
-              Get Started
-            </button>
+            <div className="space-y-2">
+              {PLAN_OPTIONS.map((p) => (
+                <label key={p.value} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${plan === p.value ? 'border-sonic-primary bg-sonic-primary/5' : 'border-sonic-border'}`}>
+                  <input type="radio" name="plan" checked={plan === p.value} onChange={() => setPlan(p.value)} className="mt-1" />
+                  <div>
+                    <p className="text-sm font-bold text-sonic-text">{p.label}</p>
+                    <p className="text-xs text-sonic-text-dim">{p.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-between items-center">
+              <button onClick={() => setStep(2)} disabled={saving} className="text-sm font-bold text-sonic-text-dim hover:text-sonic-text disabled:opacity-50">Atrás</button>
+              <button
+                onClick={handleSubmit}
+                disabled={saving}
+                className="px-5 py-2 rounded text-sm font-bold bg-sonic-primary text-sonic-primary-ink hover:bg-sonic-primary/90 disabled:opacity-50"
+              >
+                {saving ? 'Guardando...' : 'Empezar'}
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -549,27 +614,102 @@ const ManagedArtists = () => {
   const [artists, setArtists] = useState<{ id: string; name: string; email: string; avatarUrl: string | null }[]>([]);
   const [labelName, setLabelName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState<'create' | 'claim' | null>(null);
+  const [form, setForm] = useState({ name: '', email: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState('');
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await ArtistService.getLabel();
-        setArtists(res?.managedArtists || []);
-        setLabelName(res?.ownedLabel?.name || '');
-      } catch {
-        // Non-fatal - just shows an empty list.
-      } finally {
-        setLoading(false);
+  const loadArtists = async () => {
+    try {
+      const res = await ArtistService.getLabel();
+      setArtists(res?.managedArtists || []);
+      setLabelName(res?.ownedLabel?.name || '');
+    } catch {
+      // Non-fatal - just shows an empty list.
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadArtists(); }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setFeedback('');
+    try {
+      if (mode === 'create') {
+        await ArtistService.createLabelArtist({ name: form.name, email: form.email });
+        setFeedback(`Cuenta creada. Le enviamos un correo a ${form.email} para que configure su contraseña.`);
+      } else {
+        await ArtistService.claimLabelArtist(form.email);
+        setFeedback(`${form.email} ahora está bajo tu Sello.`);
       }
-    })();
-  }, []);
+      setForm({ name: '', email: '' });
+      setMode(null);
+      loadArtists();
+    } catch (err: any) {
+      setFeedback(err.message || 'No se pudo completar la acción.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
-      <header>
-        <h1 className="text-3xl font-black text-sonic-text mb-1">Managed Artists</h1>
-        <p className="text-sonic-text-dim">{labelName ? `Artists distributing under ${labelName}.` : 'Artists under your label.'}</p>
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-sonic-text mb-1">Managed Artists</h1>
+          <p className="text-sonic-text-dim">{labelName ? `Artists distributing under ${labelName}.` : 'Artists under your label.'}</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => { setMode('claim'); setFeedback(''); }} className="px-4 py-2 rounded text-sm font-bold border border-sonic-border text-sonic-text hover:border-sonic-primary hover:text-sonic-primary transition-colors">
+            Reclamar Artista
+          </button>
+          <button onClick={() => { setMode('create'); setFeedback(''); }} className="px-4 py-2 rounded text-sm font-bold bg-sonic-primary text-sonic-primary-ink hover:brightness-95 transition-all">
+            + Crear Artista
+          </button>
+        </div>
       </header>
+
+      {feedback && (
+        <div className="bg-sonic-primary/10 border border-sonic-primary/30 text-sonic-text px-4 py-3 rounded text-sm">{feedback}</div>
+      )}
+
+      {mode && (
+        <form onSubmit={handleSubmit} className="bg-sonic-card rounded-lg border border-sonic-border p-6 space-y-4">
+          <h3 className="font-bold text-sonic-text">
+            {mode === 'create' ? 'Crear un nuevo artista bajo tu Sello' : 'Reclamar un artista existente'}
+          </h3>
+          {mode === 'create' && (
+            <input
+              type="text"
+              required
+              placeholder="Nombre artístico"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              className="w-full bg-sonic-elevated border border-sonic-border rounded px-4 py-2.5 text-sm text-sonic-text focus:outline-none focus:border-sonic-primary"
+            />
+          )}
+          <input
+            type="email"
+            required
+            placeholder={mode === 'create' ? 'Correo del artista' : 'Correo del artista a reclamar'}
+            value={form.email}
+            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            className="w-full bg-sonic-elevated border border-sonic-border rounded px-4 py-2.5 text-sm text-sonic-text focus:outline-none focus:border-sonic-primary"
+          />
+          {mode === 'claim' && (
+            <p className="text-xs text-sonic-text-dim">Solo puedes reclamar artistas que aún están en el sello EAJMUSIC por defecto (no gestionados por otro Sello).</p>
+          )}
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={() => setMode(null)} className="text-sm font-bold text-sonic-text-dim hover:text-sonic-text">Cancelar</button>
+            <button type="submit" disabled={submitting} className="px-5 py-2 rounded text-sm font-bold bg-sonic-primary text-sonic-primary-ink hover:brightness-95 disabled:opacity-50">
+              {submitting ? 'Enviando...' : mode === 'create' ? 'Crear Artista' : 'Reclamar Artista'}
+            </button>
+          </div>
+        </form>
+      )}
 
       <div className="bg-sonic-card rounded-lg border border-sonic-border divide-y divide-sonic-border">
         {loading && <div className="p-8 text-center text-sonic-text-dim">Loading...</div>}

@@ -10,6 +10,7 @@ export interface User {
   status: string;
   avatarUrl: string | null;
   emailVerified?: boolean;
+  onboardingCompletedAt?: string | null;
   permissions?: string[] | null;
   subscription?: {
     plan: string;

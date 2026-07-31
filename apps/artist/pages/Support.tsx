@@ -10,7 +10,6 @@ const Support: React.FC = () => {
     const [formData, setFormData] = useState({
         subject: '',
         category: '',
-        priority: 'Medium',
         message: ''
     });
 
@@ -34,11 +33,10 @@ const Support: React.FC = () => {
             await ArtistService.createTicket(
                 formData.subject || formData.category,
                 formData.category,
-                formData.message,
-                formData.priority
+                formData.message
             );
             setToast('Ticket submitted successfully');
-            setFormData({ subject: '', category: '', priority: 'Medium', message: '' });
+            setFormData({ subject: '', category: '', message: '' });
             fetchTickets();
         } catch (error: any) {
             setToast(error.message || 'Failed to submit ticket');
@@ -117,34 +115,23 @@ const Support: React.FC = () => {
                 <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
                     <h3 className="text-xl font-bold mb-6">Create a Support Ticket</h3>
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase">Category</label>
-                                <select
-                                    value={formData.category}
-                                    onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                    required
-                                    className="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold"
-                                >
-                                    <option value="">Select a category...</option>
-                                    <option value="Missing Royalties">Missing Royalties</option>
-                                    <option value="Takedown Request">Takedown Request</option>
-                                    <option value="Account">Account Issues</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase">Priority</label>
-                                <select
-                                    value={formData.priority}
-                                    onChange={e => setFormData({ ...formData, priority: e.target.value })}
-                                    className="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold"
-                                >
-                                    <option value="Low">Low</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="High">High</option>
-                                </select>
-                            </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase">Category</label>
+                            <select
+                                value={formData.category}
+                                onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                required
+                                className="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-bold"
+                            >
+                                <option value="">Select a category...</option>
+                                <option value="Missing Royalties">Missing Royalties</option>
+                                <option value="Takedown Request">Takedown Request</option>
+                                <option value="Account Issues">Account Issues</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            {/* No priority field: the platform assigns priority automatically
+                                from category + message content, so a self-reported "urgent"
+                                can't jump the queue. */}
                         </div>
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 uppercase">Subject</label>

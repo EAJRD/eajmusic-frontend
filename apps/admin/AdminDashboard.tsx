@@ -14,8 +14,9 @@ import AdminSettings from './pages/AdminSettings';
 import FinanceHub from './pages/FinanceHub';
 import Team from './pages/Team';
 import TestimonialModeration from './pages/TestimonialModeration';
+import ContributorMatches from './pages/ContributorMatches';
 
-export type AdminTab = 'overview' | 'plans' | 'announcements' | 'tickets' | 'brand' | 'releases' | 'users' | 'settings' | 'finance' | 'team' | 'testimonials';
+export type AdminTab = 'overview' | 'plans' | 'announcements' | 'tickets' | 'brand' | 'releases' | 'users' | 'settings' | 'finance' | 'team' | 'testimonials' | 'contributor-matches';
 
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
@@ -55,6 +56,8 @@ const AdminDashboard: React.FC = () => {
         return <Team />;
       case 'testimonials':
         return <TestimonialModeration />;
+      case 'contributor-matches':
+        return <ContributorMatches />;
       case 'overview':
       default:
         return <AdminOverview onNavigate={selectTab} />;
@@ -156,6 +159,14 @@ const AdminDashboard: React.FC = () => {
               label="Testimonials"
               isActive={activeTab === 'testimonials'}
               onClick={() => selectTab('testimonials')}
+            />
+          )}
+          {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+            <NavItem
+              icon="link"
+              label="Contributor Matches"
+              isActive={activeTab === 'contributor-matches'}
+              onClick={() => selectTab('contributor-matches')}
             />
           )}
 
