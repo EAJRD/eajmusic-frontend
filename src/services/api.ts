@@ -438,10 +438,12 @@ export const AdminService = {
   getUser: (id: string) => api.get<User>(`/admin/users/${id}`),
 
   // Creates an employee account (SUPPORT/REVIEWER/FINANCE/ADMIN) — SUPER_ADMIN only.
-  // If `password` is omitted, the backend generates a one-time temporary
-  // password and returns it as `temporaryPassword` (never recoverable again).
-  createEmployee: (data: { name: string; email: string; role: 'SUPPORT' | 'REVIEWER' | 'FINANCE' | 'ADMIN'; password?: string; permissions?: string[] }) =>
-    api.post<{ success: boolean; message: string; user: User; temporaryPassword?: string }>('/admin/users', data),
+  // No password: the new employee signs up themselves (InsForge requires a
+  // self-chosen password) using this same email — an invitation email is
+  // sent with a link to do that, and `invitationSent` reports whether it
+  // actually went out (false if SMTP isn't configured on the backend).
+  createEmployee: (data: { name: string; email: string; role: 'SUPPORT' | 'REVIEWER' | 'FINANCE' | 'ADMIN'; permissions?: string[] }) =>
+    api.post<{ success: boolean; message: string; user: User; invitationSent: boolean; registerUrl: string }>('/admin/users', data),
 
   updateUserStatus: (id: string, status: string) =>
     api.patch<User>(`/admin/users/${id}/status`, { status }),

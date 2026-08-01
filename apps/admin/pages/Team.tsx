@@ -40,9 +40,10 @@ const Team: React.FC = () => {
   const [formError, setFormError] = useState('');
   const [form, setForm] = useState({ name: '', email: '', role: 'SUPPORT' as 'SUPPORT' | 'REVIEWER' | 'FINANCE' | 'ADMIN' });
 
-  // One-time-secret UX: the temp password is shown exactly once after
-  // creation, then discarded — it can never be recovered from the backend.
-  const [revealedPassword, setRevealedPassword] = useState<{ email: string; password: string } | null>(null);
+  // Employees sign themselves up (InsForge requires a self-chosen password)
+  // — this just confirms whether the invitation email went out, and gives a
+  // copyable link as a fallback if it didn't (e.g. SMTP not configured).
+  const [invitation, setInvitation] = useState<{ email: string; sent: boolean; registerUrl: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
   const fetchEmployees = useCallback(async () => {
@@ -86,9 +87,7 @@ const Team: React.FC = () => {
         role: form.role,
       });
       setShowCreateForm(false);
-      if (res?.temporaryPassword) {
-        setRevealedPassword({ email: form.email.trim(), password: res.temporaryPassword });
-      }
+      setInvitation({ email: form.email.trim(), sent: !!res?.invitationSent, registerUrl: res?.registerUrl || '' });
       fetchEmployees();
     } catch (err: any) {
       setFormError(err.message || 'Failed to create employee account.');
@@ -97,19 +96,19 @@ const Team: React.FC = () => {
     }
   };
 
-  const handleCopyPassword = async () => {
-    if (!revealedPassword) return;
+  const handleCopyLink = async () => {
+    if (!invitation) return;
     try {
-      await navigator.clipboard.writeText(revealedPassword.password);
+      await navigator.clipboard.writeText(invitation.registerUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard access denied — the password remains visible for manual copy.
+      // Clipboard access denied — the link remains visible for manual copy.
     }
   };
 
-  const dismissRevealedPassword = () => {
-    setRevealedPassword(null);
+  const dismissInvitation = () => {
+    setInvitation(null);
     setCopied(false);
   };
 
@@ -248,7 +247,7 @@ const Team: React.FC = () => {
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
-                <p className="text-xs text-slate-400">A temporary password will be generated and shown once after creation.</p>
+                <p className="text-xs text-slate-400">They'll get an email to create their own account with this address — no password to share.</p>
               </div>
             </div>
 
@@ -272,37 +271,44 @@ const Team: React.FC = () => {
         </div>
       )}
 
-      {/* One-time Temporary Password Reveal */}
-      {revealedPassword && (
+      {/* Invitation Confirmation */}
+      {invitation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-card-dark w-full max-w-md rounded-2xl shadow-2xl border border-amber-300 dark:border-amber-700 overflow-hidden">
+          <div className={`bg-white dark:bg-card-dark w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden ${invitation.sent ? 'border-emerald-300 dark:border-emerald-700' : 'border-amber-300 dark:border-amber-700'}`}>
             <div className="p-6 border-b border-slate-200 dark:border-dark-800 flex items-center gap-3">
-              <span className="material-symbols-outlined text-amber-500 text-2xl">lock_clock</span>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">Temporary password</h2>
+              <span className={`material-symbols-outlined text-2xl ${invitation.sent ? 'text-emerald-500' : 'text-amber-500'}`}>
+                {invitation.sent ? 'mark_email_read' : 'warning'}
+              </span>
+              <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                {invitation.sent ? 'Invitation sent' : 'Account created — email not sent'}
+              </h2>
             </div>
             <div className="p-6 space-y-4">
-              <p className="text-sm text-amber-600 dark:text-amber-400 font-bold">
-                Copy this now — it won't be shown again.
-              </p>
               <p className="text-sm text-slate-500">
-                Account created for <span className="font-bold text-slate-900 dark:text-white">{revealedPassword.email}</span>. Share this password securely; the employee should change it after first login.
+                {invitation.sent ? (
+                  <>An invitation email was sent to <span className="font-bold text-slate-900 dark:text-white">{invitation.email}</span>. They just need to sign up with that same address to activate their account.</>
+                ) : (
+                  <>The account for <span className="font-bold text-slate-900 dark:text-white">{invitation.email}</span> was created, but the invitation email couldn't be sent (SMTP isn't configured). Share this sign-up link with them directly:</>
+                )}
               </p>
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-dark-900 border border-slate-200 dark:border-dark-800 rounded-lg px-4 py-3">
-                <code className="flex-1 font-mono text-sm text-slate-900 dark:text-white select-all break-all">{revealedPassword.password}</code>
-                <button
-                  onClick={handleCopyPassword}
-                  className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition-colors flex-shrink-0"
-                >
-                  {copied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
+              {!invitation.sent && (
+                <div className="flex items-center gap-2 bg-slate-100 dark:bg-dark-900 border border-slate-200 dark:border-dark-800 rounded-lg px-4 py-3">
+                  <code className="flex-1 font-mono text-xs text-slate-900 dark:text-white select-all break-all">{invitation.registerUrl}</code>
+                  <button
+                    onClick={handleCopyLink}
+                    className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-lg transition-colors flex-shrink-0"
+                  >
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-end p-6 border-t border-slate-200 dark:border-dark-800 bg-slate-50 dark:bg-dark-900/50">
               <button
-                onClick={dismissRevealedPassword}
+                onClick={dismissInvitation}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-bold rounded-lg transition-colors"
               >
-                Done, I've saved it
+                Done
               </button>
             </div>
           </div>
