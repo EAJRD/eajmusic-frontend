@@ -400,7 +400,15 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
             idempotencyKeyRef.current = crypto.randomUUID();
             onComplete?.();
         } catch (err: any) {
-            setSubmitError(err.message || 'Failed to submit release. Please try again.');
+            // The backend's generic "Invalid input data" message never says
+            // which field actually failed Zod validation - surface the real
+            // per-field detail (err.data.details, see ApiError in api.ts)
+            // instead of leaving the artist guessing at what to fix.
+            const details = err?.data?.details as { field: string; message: string }[] | undefined;
+            const detailText = details?.length
+                ? details.map((d) => `${d.field}: ${d.message}`).join(' | ')
+                : undefined;
+            setSubmitError(detailText || err.message || 'Failed to submit release. Please try again.');
         } finally {
             setSubmitting(false);
         }

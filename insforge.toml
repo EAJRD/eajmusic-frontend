@@ -17,7 +17,7 @@ enabled = true
 host = "smtp.hostinger.com"
 port = 465
 username = "ernesto@eajmusic.com"
-sender_email = "no-reply@Eajmusic.com"
+sender_email = "support@eajmusic.com"
 sender_name = "EAJMusic"
 min_interval_seconds = 60
 
