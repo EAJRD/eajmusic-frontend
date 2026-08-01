@@ -15,6 +15,11 @@ interface PendingRegistration {
   email: string;
   name: string;
   accountType: string;
+  // Set only when this signup came from an "Accept Invitation" link
+  // (AcceptInvite.tsx) - carried through to POST /auth/sync-insforge-user so
+  // it can atomically consume the matching LabelArtistInvitation row instead
+  // of provisioning a default-label ARTIST.
+  invitationToken?: string;
 }
 
 export function savePendingRegistration(data: PendingRegistration): void {

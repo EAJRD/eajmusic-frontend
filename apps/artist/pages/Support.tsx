@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArtistService } from '../../../src/services/api';
+import type { SupportTicket } from '../../../src/types/api';
 
 const Support: React.FC = () => {
-    const [tickets, setTickets] = useState<any[]>([]);
+    const [tickets, setTickets] = useState<SupportTicket[]>([]);
     const [loadingTickets, setLoadingTickets] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [toast, setToast] = useState('');
+    const [toastIsError, setToastIsError] = useState(false);
 
     const [formData, setFormData] = useState({
         subject: '',
@@ -30,15 +32,25 @@ const Support: React.FC = () => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            await ArtistService.createTicket(
+            const response = await ArtistService.createTicket(
                 formData.subject || formData.category,
                 formData.category,
                 formData.message
             );
+            if (!response?.ticket?.id) {
+                throw new Error('The ticket could not be created. Please try again.');
+            }
+            // Show it immediately - don't make the user wait on a reload to
+            // see what they just submitted.
+            setTickets((prev) => [response.ticket, ...prev]);
+            setToastIsError(false);
             setToast('Ticket submitted successfully');
             setFormData({ subject: '', category: '', message: '' });
+            // Silent background sync to reconcile with the real server state
+            // (ordering, any server-side fields) without blocking the UI.
             fetchTickets();
         } catch (error: any) {
+            setToastIsError(true);
             setToast(error.message || 'Failed to submit ticket');
         } finally {
             setSubmitting(false);
@@ -50,7 +62,7 @@ const Support: React.FC = () => {
         <div className="flex-1 px-4 md:px-10 lg:px-20 py-8 max-w-[1600px] w-full mx-auto font-display text-slate-900 dark:text-white">
             {toast && (
                 <div className="fixed bottom-4 right-4 z-50 bg-slate-900 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3">
-                    <span className="material-symbols-outlined text-emerald-400">info</span>
+                    <span className={`material-symbols-outlined ${toastIsError ? 'text-red-400' : 'text-emerald-400'}`}>{toastIsError ? 'error' : 'info'}</span>
                     <p className="font-bold">{toast}</p>
                 </div>
             )}

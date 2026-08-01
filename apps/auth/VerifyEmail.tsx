@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Logo } from '../../components/Icons';
 import { getPendingRegistration, clearPendingRegistration } from '../../src/utils/pendingRegistration';
@@ -20,7 +20,7 @@ const VerifyEmail: React.FC = () => {
   // or reloaded before finishing this step (e.g. the Login.tsx redirect for
   // an unverified account lands here with only ?email=, no registration
   // context at all) - see pendingRegistration.ts for why this matters.
-  const [pending, setPending] = useState<{ name: string; accountType: string } | null>(null);
+  const [pending, setPending] = useState<{ name: string; accountType: string; invitationToken?: string } | null>(null);
   useEffect(() => {
     setPending(email ? getPendingRegistration(email) : null);
   }, [email]);
@@ -30,7 +30,7 @@ const VerifyEmail: React.FC = () => {
     setError('');
     setLoading(true);
     try {
-      const result = await verifyEmailCode(email, otp, pending?.name, pending?.accountType);
+      const result = await verifyEmailCode(email, otp, pending?.name, pending?.accountType, pending?.invitationToken);
       if (result.success) {
         clearPendingRegistration();
         navigate('/dashboard', { replace: true });

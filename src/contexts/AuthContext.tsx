@@ -16,7 +16,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<AuthResult>;
   loginWithOAuth: (provider: string, accountType?: string) => Promise<AuthResult>;
   register: (name: string, email: string, password: string, accountType?: string) => Promise<AuthResult>;
-  verifyEmailCode: (email: string, otp: string, name?: string, accountType?: string) => Promise<AuthResult>;
+  verifyEmailCode: (email: string, otp: string, name?: string, accountType?: string, invitationToken?: string) => Promise<AuthResult>;
   resendVerificationCode: (email: string) => Promise<AuthResult>;
   forgotPassword: (email: string) => Promise<AuthResult>;
   resetPasswordWithCode: (email: string, code: string, newPassword: string) => Promise<AuthResult>;
@@ -40,7 +40,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // cookies (POST /auth/sync-insforge-user) - everything else (session
 // persistence via /auth/me, RBAC, every other API call) is completely
 // unchanged from before.
-async function syncInsforgeUser(insforgeAccessToken: string, extra?: { name?: string; accountType?: string }): Promise<User> {
+async function syncInsforgeUser(insforgeAccessToken: string, extra?: { name?: string; accountType?: string; invitationToken?: string }): Promise<User> {
   const res = await fetch(`${API_BASE_URL}/auth/sync-insforge-user`, {
     method: 'POST',
     credentials: 'include',
@@ -197,7 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const verifyEmailCode = useCallback(async (email: string, otp: string, name?: string, accountType?: string): Promise<AuthResult> => {
+  const verifyEmailCode = useCallback(async (email: string, otp: string, name?: string, accountType?: string, invitationToken?: string): Promise<AuthResult> => {
     try {
       const insforge = await getInsforge();
       const { data, error } = await insforge.auth.verifyEmail({ email, otp });
@@ -209,7 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Verification failed' };
       }
 
-      const syncedUser = await syncInsforgeUser(data.accessToken, { name, accountType });
+      const syncedUser = await syncInsforgeUser(data.accessToken, { name, accountType, invitationToken });
       setUser(syncedUser);
       return { success: true };
     } catch (error: any) {

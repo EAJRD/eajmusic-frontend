@@ -51,6 +51,10 @@ export interface Release {
   artistName?: string;
   tracks?: Track[];
   createdAt: string;
+  // Client-generated, sent only on POST /artist/releases - lets a retried
+  // submit (double-click, network blip) return the already-created release
+  // instead of creating a duplicate DRAFT. See NewRelease.tsx.
+  idempotencyKey?: string;
 }
 
 export interface Track {

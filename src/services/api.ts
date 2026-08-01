@@ -405,10 +405,10 @@ export const ArtistService = {
   requestPayout: (amount: number, method: string, methodDetails: { accountNumber?: string; email?: string; phone?: string }) =>
     api.post<{ success: boolean; payoutId: string }>('/artist/wallet/request-payout', { amount, method, methodDetails }),
 
-  getTickets: () => api.get<SupportTicket[]>('/artist/tickets'),
+  getTickets: () => api.get<{ tickets: SupportTicket[] }>('/artist/tickets'),
 
   createTicket: (subject: string, category: string, message: string, priority?: string) =>
-    api.post<SupportTicket>('/artist/tickets', { subject, category, message, priority }),
+    api.post<{ success: boolean; ticket: SupportTicket }>('/artist/tickets', { subject, category, message, priority }),
 
   replyToTicket: (ticketId: string, message: string) =>
     api.post<{ success: boolean }>(`/artist/tickets/${ticketId}/reply`, { message }),
@@ -419,8 +419,21 @@ export const ArtistService = {
   completeOnboarding: (data: { artistName: string; dateOfBirth: string; idDocumentUrl: string; idDocumentKey?: string; plan: 'FREE' | 'PRO' | 'LABEL_PLUS' | 'ENTERPRISE' }) =>
     api.post<{ success: boolean; message: string }>('/artist/onboarding', data),
 
-  createLabelArtist: (data: { email: string; name: string }) =>
-    api.post<{ success: boolean; artist: { id: string; name: string; email: string } }>('/artist/label/artists', data),
+  // Creates an invitation, not an account — no User row exists until the
+  // invited person accepts it (see AcceptInvite.tsx). Returns 409 with
+  // code 'INVITATION_ALREADY_PENDING' if one is already outstanding for
+  // this email at this label.
+  inviteLabelArtist: (data: { email: string; name: string }) =>
+    api.post<{ success: boolean; invitation: { id: string; email: string; name: string; expiresAt: string } }>('/artist/label/artists/invite', data),
+
+  // Prevalidation so the UI can show the real rejection reason and disable
+  // the submit button before a claim attempt, instead of only finding out
+  // after a failed POST. code is one of ARTIST_NOT_FOUND / LABEL_NOT_FOUND /
+  // ARTIST_ALREADY_MANAGED / ARTIST_NOT_ELIGIBLE_FOR_CLAIM / ELIGIBLE.
+  checkArtistClaimEligibility: (email: string) =>
+    api.get<{ eligible: boolean; code: string; message: string; artist?: { name: string; avatarUrl: string | null } }>(
+      `/artist/label/artists/claim/check?email=${encodeURIComponent(email)}`
+    ),
 
   claimLabelArtist: (email: string) =>
     api.post<{ success: boolean; artist: { id: string; name: string; email: string; avatarUrl: string | null } }>('/artist/label/artists/claim', { email }),
@@ -494,10 +507,12 @@ export const AdminService = {
 
   getTickets: (params?: { status?: string; page?: number }) => {
     const query = buildQuery(params);
-    return api.get<PaginatedResponse<SupportTicket>>(`/admin/tickets${query ? `?${query}` : ''}`);
+    return api.get<{ tickets: SupportTicket[]; pagination: { page: number; limit: number; total: number; pages: number } }>(
+      `/admin/tickets${query ? `?${query}` : ''}`
+    );
   },
 
-  getTicket: (id: string) => api.get<SupportTicket>(`/admin/tickets/${id}`),
+  getTicket: (id: string) => api.get<{ ticket: SupportTicket }>(`/admin/tickets/${id}`),
 
   replyToTicket: (ticketId: string, message: string, isInternal?: boolean) =>
     api.post<{ success: boolean }>(`/admin/tickets/${ticketId}/reply`, { message, isInternal }),
@@ -577,6 +592,13 @@ export const PublicService = {
   // including inactive/expired/future-dated ones.
   getAnnouncements: () =>
     api.get<{ announcements: Announcement[] }>('/public/announcements'),
+
+  // Validates a label-artist invitation link before the person commits to
+  // signing up (AcceptInvite.tsx) — safe to call unauthenticated since the
+  // token is the only thing that grants access to it, same trust level as
+  // an email verification code.
+  getLabelInvitation: (token: string) =>
+    api.get<{ email: string; name: string; labelName: string }>(`/public/label-invitations/${token}`),
 };
 
 // Upload Service

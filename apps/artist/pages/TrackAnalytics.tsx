@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { motion } from 'framer-motion';
 import { ArtistService } from '../../../src/services/api';
+import { getStatsSnapshotFallback } from '../../../src/utils/statsSnapshotFallback';
 
 interface DailyPoint {
     date: string;
@@ -39,15 +40,41 @@ const TrackAnalytics: React.FC = () => {
     const [topTracks, setTopTracks] = useState<any[]>([]);
     const [countryData, setCountryData] = useState<CountryPoint[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [showingCachedStats, setShowingCachedStats] = useState(false);
 
     useEffect(() => {
         const fetchAnalytics = async () => {
             setIsLoading(true);
+            setShowingCachedStats(false);
             try {
                 const [statsData, overviewData] = await Promise.all([
                     ArtistService.getStats().catch(() => null),
                     ArtistService.getAnalytics(timeRangeToPeriod[timeRange] || '28d').catch(() => null),
                 ]);
+
+                // Both primary calls failed - the API/DB is likely down.
+                // Fall back to InsForge's cached snapshot (track-level
+                // totals only - no daily/country breakdown, that
+                // granularity isn't in the cache) rather than showing a
+                // blank/zero dashboard.
+                if (!statsData && !overviewData) {
+                    const snapshot = await getStatsSnapshotFallback();
+                    if (snapshot && snapshot.length > 0) {
+                        setShowingCachedStats(true);
+                        const totalStreams = snapshot.reduce((sum, r) => sum + r.streams, 0);
+                        const totalRevenue = snapshot.reduce((sum, r) => sum + r.revenue, 0);
+                        setStats({ totalStreams, totalRevenue, monthlyListeners: 0, followers: 0 });
+                        setTopTracks(
+                            [...snapshot]
+                                .sort((a, b) => b.streams - a.streams)
+                                .slice(0, 10)
+                                .map((r) => ({ title: r.title, streams: r.streams, revenueNet: r.revenue }))
+                        );
+                        setChartData([]);
+                        setCountryData([]);
+                        return;
+                    }
+                }
 
                 setStats(statsData || { totalStreams: 0, totalRevenue: 0, monthlyListeners: 0, followers: 0 });
 
@@ -74,6 +101,12 @@ const TrackAnalytics: React.FC = () => {
 
     return (
         <div className="flex-1 px-4 md:px-10 lg:px-20 py-8 max-w-[1600px] w-full mx-auto font-display text-slate-900 dark:text-white">
+            {showingCachedStats && (
+                <div className="mb-6 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base">cloud_off</span>
+                    Showing a cached snapshot - our servers are temporarily unreachable. Daily and country breakdowns aren't available in this view.
+                </div>
+            )}
             {/* Header & Date Picker */}
             <div className="flex flex-wrap justify-between items-end gap-4 mb-8">
                 <div>

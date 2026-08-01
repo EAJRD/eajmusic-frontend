@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { ArtistService, AuthService, UploadService } from '../../src/services/api';
+import { isLabel } from '../../src/utils/capabilities';
 import { Logo } from '../../components/Icons';
 import ThemeToggle from '../../components/ThemeToggle';
 import NewRelease from './pages/NewRelease';
 import TrackAnalytics from './pages/TrackAnalytics';
 import Wallet from './pages/Wallet';
 import Profile from './pages/Profile';
-import Settings from './pages/Settings';
+import ArtistSettings from './pages/ArtistSettings';
+import LabelSettings from './pages/LabelSettings';
 import Support from './pages/Support';
 import Catalog from './pages/Catalog';
 import ReleaseDetail from './pages/ReleaseDetail';
@@ -53,14 +55,16 @@ const ArtistDashboard: React.FC = () => {
       case 'profile':
         return <Profile />;
       case 'settings':
-        return <Settings />;
+        return isLabel(user) ? <LabelSettings /> : <ArtistSettings />;
       case 'support':
         return <Support />;
       case 'artists':
         return <ManagedArtists />;
       case 'overview':
       default:
-        return <ArtistOverview onUploadClick={() => setActiveTab('upload')} />;
+        return isLabel(user)
+          ? <LabelOverview onUploadClick={() => setActiveTab('upload')} />
+          : <ArtistOverview onUploadClick={() => setActiveTab('upload')} />;
     }
   };
 
@@ -99,7 +103,7 @@ const ArtistDashboard: React.FC = () => {
             <Logo className="text-sonic-primary w-8 h-8 mr-2" />
             <div className="leading-tight">
               <span className="block font-bold text-lg tracking-tight text-sonic-text">EAJMUSIC</span>
-              <span className="hidden lg:block text-[10px] uppercase tracking-wider text-sonic-text-dim">{user?.role === 'LABEL' ? 'Label Portal' : 'Artist Portal'}</span>
+              <span className="hidden lg:block text-[10px] uppercase tracking-wider text-sonic-text-dim">{isLabel(user) ? 'Label Portal' : 'Artist Portal'}</span>
             </div>
           </div>
           <div className="hidden lg:block">
@@ -138,7 +142,7 @@ const ArtistDashboard: React.FC = () => {
             isActive={activeTab === 'music'}
             onClick={() => { setActiveTab('music'); setSelectedReleaseId(null); setIsMobileMenuOpen(false); }}
           />
-          {user?.role === 'LABEL' && (
+          {isLabel(user) && (
             <NavItem
               icon="groups"
               label="Managed Artists"
@@ -212,7 +216,7 @@ const ArtistDashboard: React.FC = () => {
         {renderContent()}
       </main>
 
-      {user?.role === 'ARTIST' && <OnboardingWizard />}
+      {!isLabel(user) && <OnboardingWizard />}
 
       {/* Modal Overlay */}
       {showSuccessModal && (
@@ -295,7 +299,7 @@ const ArtistOverview = ({ onUploadClick }: { onUploadClick: () => void }) => {
         ]);
         if (cancelled) return;
         setStats(statsRes);
-        setReleases(releasesRes?.releases || []);
+        setReleases(releasesRes?.data || []);
       } catch {
         // Network/backend unavailable — the zero-state below still renders cleanly.
       } finally {
@@ -379,6 +383,101 @@ const ArtistOverview = ({ onUploadClick }: { onUploadClick: () => void }) => {
             </div>
           )}
           {/* Upload CTA Card */}
+          <div onClick={onUploadClick} className="border-2 border-dashed border-sonic-border rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-sonic-primary hover:bg-sonic-primary/5 transition-all group h-full min-h-[100px]">
+            <div className="bg-sonic-elevated p-2 rounded-full mb-2 group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-sonic-text-dim group-hover:text-sonic-primary">add</span>
+            </div>
+            <p className="text-sm font-bold text-sonic-text-dim group-hover:text-sonic-primary">Distribute New Music</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// A LABEL account doesn't earn streams/royalties itself (money flows to each
+// managed artist's own Wallet - see prisma/schema.prisma) so the balance/
+// streams cards from ArtistOverview would just show misleading zeros here.
+// This shows what actually matters to a label instead: how many artists it
+// manages and the aggregate release activity across all of them (GET
+// /artist/releases now returns that aggregate for role=LABEL).
+const LabelOverview = ({ onUploadClick }: { onUploadClick: () => void }) => {
+  const { user } = useAuth();
+  const [labelName, setLabelName] = useState('');
+  const [artistCount, setArtistCount] = useState(0);
+  const [releases, setReleases] = useState<OverviewRelease[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [labelRes, releasesRes] = await Promise.all([
+          ArtistService.getLabel(),
+          ArtistService.getReleases({ limit: 6 }),
+        ]);
+        if (cancelled) return;
+        setLabelName(labelRes?.ownedLabel?.name || '');
+        setArtistCount(labelRes?.managedArtists?.length || 0);
+        setReleases(releasesRes?.data || []);
+      } catch {
+        // Zero-state below still renders cleanly.
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
+      <header className="flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-black text-sonic-text mb-2">{labelName || user?.name || 'Your Label'}</h1>
+          <p className="text-sonic-text-dim">Here's what's happening across your roster today.</p>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <StatCard label="Managed Artists" value={loading ? '—' : artistCount} icon="groups" color="text-sonic-primary" />
+        <StatCard label="Releases (all artists)" value={loading ? '—' : releases.length} icon="library_music" color="text-sonic-text" />
+      </div>
+
+      <div className="bg-sonic-card rounded-lg border border-sonic-border p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-bold text-sonic-text">Recent Releases</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {!loading && releases.map((release) => (
+            <div key={release.id} className="group border border-sonic-border rounded-lg p-4 hover:border-sonic-primary transition-colors cursor-pointer">
+              <div className="flex items-center gap-4">
+                <div
+                  className="size-16 rounded bg-sonic-elevated bg-cover bg-center relative"
+                  style={release.coverArtUrl ? { backgroundImage: `url('${release.coverArtUrl}')` } : undefined}
+                >
+                  {!release.coverArtUrl && (
+                    <div className="absolute inset-0 flex items-center justify-center text-sonic-text-dim">
+                      <span className="material-symbols-outlined">album</span>
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h4 className="font-bold text-sonic-text group-hover:text-sonic-primary transition-colors truncate">{release.title}</h4>
+                  <p className="text-xs text-sonic-text-dim truncate">{(release as any).artistName || ''}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${RELEASE_STATUS_STYLES[release.status] || RELEASE_STATUS_STYLES.DRAFT}`}>
+                      {release.status.charAt(0) + release.status.slice(1).toLowerCase()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          {!loading && releases.length === 0 && (
+            <div className="col-span-full text-center py-6 text-sonic-text-dim text-sm">
+              No releases from your artists yet.
+            </div>
+          )}
           <div onClick={onUploadClick} className="border-2 border-dashed border-sonic-border rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer hover:border-sonic-primary hover:bg-sonic-primary/5 transition-all group h-full min-h-[100px]">
             <div className="bg-sonic-elevated p-2 rounded-full mb-2 group-hover:scale-110 transition-transform">
               <span className="material-symbols-outlined text-sonic-text-dim group-hover:text-sonic-primary">add</span>
@@ -639,14 +738,24 @@ const ManagedArtists = () => {
     setFeedback('');
     try {
       if (mode === 'create') {
-        await ArtistService.createLabelArtist({ name: form.name, email: form.email });
-        setFeedback(`Cuenta creada. Le enviamos un correo a ${form.email} para que configure su contraseña.`);
+        await ArtistService.inviteLabelArtist({ name: form.name, email: form.email });
+        setFeedback(`Invitación enviada a ${form.email}. Aparecerá en tu lista una vez que la acepte.`);
+        setForm({ name: '', email: '' });
+        setMode(null);
       } else {
+        // Prevalidate first so a rejection never looks like a false
+        // "success" - the claim POST enforces the same rule server-side
+        // regardless, this just gives a real reason before attempting it.
+        const check = await ArtistService.checkArtistClaimEligibility(form.email);
+        if (!check?.eligible) {
+          setFeedback(check?.message || 'Este artista no se puede reclamar.');
+          return;
+        }
         await ArtistService.claimLabelArtist(form.email);
         setFeedback(`${form.email} ahora está bajo tu Sello.`);
+        setForm({ name: '', email: '' });
+        setMode(null);
       }
-      setForm({ name: '', email: '' });
-      setMode(null);
       loadArtists();
     } catch (err: any) {
       setFeedback(err.message || 'No se pudo completar la acción.');

@@ -71,6 +71,13 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
     const [isDragging, setIsDragging] = useState(false);
     const [stepError, setStepError] = useState('');
 
+    // Generated once per mount of this wizard, reused across every submit
+    // retry within it (double-click, network blip after a 201 the client
+    // never saw) so the backend can recognize a retry and return the
+    // already-created release instead of making a second DRAFT. A fresh
+    // wizard mount (cancel + reopen) gets a fresh key, as it should.
+    const idempotencyKeyRef = React.useRef<string>(crypto.randomUUID());
+
     // File Upload State
     const [audioFiles, setAudioFiles] = useState<File[]>([]);
     const [coverArt, setCoverArt] = useState<File | null>(null);
@@ -370,9 +377,12 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                 pLineText: pLineName.trim() || undefined,
                 isExplicit,
                 tracks,
+                idempotencyKey: idempotencyKeyRef.current,
             });
 
-            const releaseId = created?.release?.id;
+            // Backend's POST /artist/releases returns the release fields flat
+            // ({ ...release, artistName }), never wrapped in { release: {...} }.
+            const releaseId = created?.id;
             if (!releaseId) throw new Error('Release was created but no ID was returned.');
 
             // Cover art upload attaches directly to the release (releaseId is passed).
@@ -385,6 +395,9 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
 
             await ArtistService.submitRelease(releaseId);
 
+            // Fresh key in case this wizard instance gets reused for another
+            // release without remounting - the just-used key stays retired.
+            idempotencyKeyRef.current = crypto.randomUUID();
             onComplete?.();
         } catch (err: any) {
             setSubmitError(err.message || 'Failed to submit release. Please try again.');
@@ -669,7 +682,7 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                             value={recordLabel}
                             onChange={(e) => setRecordLabel(e.target.value)}
                             className="w-full bg-sonic-surface border border-sonic-border rounded px-4 py-2.5 font-medium text-sonic-text placeholder-sonic-text-dim focus:outline-none focus:border-sonic-primary focus:ring-1 focus:ring-sonic-primary transition-colors"
-                            placeholder="e.g. Independent"
+                            placeholder="e.g. EAJMusic"
                         />
                     </div>
                     <div>

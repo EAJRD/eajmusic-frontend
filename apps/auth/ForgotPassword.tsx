@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Logo } from '../../components/Icons';
 import { validatePassword } from '../../src/utils/passwordPolicy';

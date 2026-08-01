@@ -42,7 +42,10 @@ const Catalog: React.FC<CatalogProps> = ({ onSelectRelease }) => {
     setError('');
     try {
       const res = await ArtistService.getReleases();
-      setReleases(res?.releases || []);
+      // Backend's PaginatedResponse<Release> shape is { data, total, page,
+      // limit, totalPages } - not { releases } - this was silently keeping
+      // the catalog empty regardless of how many releases actually existed.
+      setReleases(res?.data || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load your catalog.');
     } finally {
