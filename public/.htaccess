@@ -1,3 +1,13 @@
+<IfModule mod_headers.c>
+  # The <meta http-equiv="Content-Security-Policy"> in index.html can't carry
+  # frame-ancestors (the CSP spec has browsers ignore that directive when
+  # delivered via meta) - only a real HTTP header can block clickjacking via
+  # framing. Keep this in sync with the meta tag's other directives; this one
+  # additionally restricts framing, which the meta tag never could.
+  Header always set Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api-api.eajmusic.com https://*.insforge.app; img-src 'self' data: blob: https:; script-src 'self'; frame-ancestors 'none'"
+  Header always set X-Frame-Options "DENY"
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /

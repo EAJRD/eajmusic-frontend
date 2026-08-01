@@ -1,5 +1,5 @@
 [auth]
-allowed_redirect_urls = ["http://localhost:5173/dashboard", "http://localhost:5173/login", "https://artist.eajmusic.com/dashboard", "https://artist.eajmusic.com/login", "https://eaj.eajmusic.com/dashboard", "https://eaj.eajmusic.com/login", "https://eajmusic.com/login", "https://eajmusic.com/dashboard"]
+allowed_redirect_urls = ["http://localhost:3000/dashboard", "http://localhost:3000/login", "https://artist.eajmusic.com/dashboard", "https://artist.eajmusic.com/login", "https://eaj.eajmusic.com/dashboard", "https://eaj.eajmusic.com/login", "https://eajmusic.com/login", "https://eajmusic.com/dashboard"]
 require_email_verification = true
 verify_email_method = "code"
 reset_password_method = "code"
