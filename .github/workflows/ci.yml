@@ -28,7 +28,10 @@ jobs:
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api-api.eajmusic.com/api' }}
 
-      # Report-only for now: the codebase has 33 pre-existing type errors
+      - name: Run unit tests (auth flow utils, password policy, ticket contract helpers)
+        run: npm test
+
+      # Report-only for now: the codebase has pre-existing type errors
       # (API contract/dashboard/wallet/release/analytics types) predating
       # this workflow. Blocking merges on them today would fail every PR,
       # including ones unrelated to those files. Once that backlog is

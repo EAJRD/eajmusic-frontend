@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { api } from '../../src/services/api';
 import { useTheme } from '../../src/contexts/ThemeContext';
 import PhoneShowcase from './components/PhoneShowcase';

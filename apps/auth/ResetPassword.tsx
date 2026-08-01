@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router';
 
 // Password reset is now code-based (InsForge) and handled entirely on the
 // Forgot Password page (enter email -> enter code + new password on the

@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute, AdminRoute, ArtistRoute, PublicOnlyRoute } from './components/ProtectedRoute';
@@ -42,6 +42,7 @@ const Register = lazy(() => import('../apps/auth/Register'));
 const ForgotPassword = lazy(() => import('../apps/auth/ForgotPassword'));
 const ResetPassword = lazy(() => import('../apps/auth/ResetPassword'));
 const VerifyEmail = lazy(() => import('../apps/auth/VerifyEmail'));
+const AcceptInvite = lazy(() => import('../apps/auth/AcceptInvite'));
 
 // Artist dashboard — needed by "main" (embeds /dashboard) and the "artist" build.
 const ArtistDashboard = (NEEDS_ARTIST ? lazy(() => import('../apps/artist/Dashboard')) : null) as any;
@@ -83,6 +84,7 @@ const ArtistAppRoutes: React.FC = () => (
     <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
     <Route path="/reset-password" element={<PublicOnlyRoute><ResetPassword /></PublicOnlyRoute>} />
     <Route path="/verify-email" element={<VerifyEmail />} />
+    <Route path="/accept-invite" element={<PublicOnlyRoute><AcceptInvite /></PublicOnlyRoute>} />
     <Route
       path="/*"
       element={
@@ -144,6 +146,7 @@ const MainAppRoutes: React.FC = () => (
     <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
     <Route path="/reset-password" element={<PublicOnlyRoute><ResetPassword /></PublicOnlyRoute>} />
     <Route path="/verify-email" element={<VerifyEmail />} />
+    <Route path="/accept-invite" element={<PublicOnlyRoute><AcceptInvite /></PublicOnlyRoute>} />
 
     <Route
       path="/dashboard/*"

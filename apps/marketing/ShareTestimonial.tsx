@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { PublicService } from '../../src/services/api';
 
 // Public, unauthenticated page a fan/colleague lands on when an artist shares
