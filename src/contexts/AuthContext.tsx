@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api, API_BASE_URL } from '../services/api';
-import { insforge } from '../lib/insforge';
+import { getInsforge } from '../lib/insforge';
 import type { User } from '../types/api';
 
 interface AuthResult {
@@ -13,7 +13,6 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  oAuthProviders: string[];
   login: (email: string, password: string) => Promise<AuthResult>;
   loginWithOAuth: (provider: string, accountType?: string) => Promise<AuthResult>;
   register: (name: string, email: string, password: string, accountType?: string) => Promise<AuthResult>;
@@ -65,26 +64,22 @@ function errorMessage(error: any, fallback: string): string {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [oAuthProviders, setOAuthProviders] = useState<string[]>([]);
 
   // Session persistence across reloads never touches InsForge - this API's
   // own httpOnly cookie (set by syncInsforgeUser at login/signup time) is
-  // the ongoing source of truth, exactly as before. The one exception is
-  // landing back from an OAuth redirect (?insforge_code=...): InsForge's SDK
-  // never exposes a reusable access token after the fact, so that one-time
-  // code has to be exchanged and synced right here, on the page it redirects
-  // back to (see loginWithOAuth below).
+  // the ongoing source of truth, exactly as before, and /auth/me is a plain
+  // fetch that never imports the InsForge SDK. The one exception is landing
+  // back from an OAuth redirect (?insforge_code=...): InsForge's SDK never
+  // exposes a reusable access token after the fact, so that one-time code
+  // has to be exchanged and synced right here, on the page it redirects
+  // back to (see loginWithOAuth below) - and only then does this pull in
+  // the SDK chunk, via the plain string check below (no SDK needed just to
+  // look for a query param).
   useEffect(() => {
     const init = async () => {
-      try {
-        const { data } = await insforge.auth.getPublicAuthConfig();
-        setOAuthProviders((data as any)?.oAuthProviders || []);
-      } catch {
-        // Non-fatal - OAuth buttons just won't render.
-      }
-
       const params = new URLSearchParams(window.location.search);
       const code = params.get('insforge_code');
+
       if (code) {
         const codeVerifier = sessionStorage.getItem(OAUTH_VERIFIER_KEY) || undefined;
         const accountType = sessionStorage.getItem(OAUTH_ACCOUNT_TYPE_KEY) || 'ARTIST';
@@ -96,6 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.history.replaceState({}, '', window.location.pathname + (cleanQuery ? `?${cleanQuery}` : '') + window.location.hash);
 
         try {
+          const insforge = await getInsforge();
           const { data, error } = await insforge.auth.exchangeOAuthCode(code, codeVerifier);
           if (!error && data?.accessToken) {
             const syncedUser = await syncInsforgeUser(data.accessToken, { accountType });
@@ -123,6 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     try {
+      const insforge = await getInsforge();
       const { data, error } = await insforge.auth.signInWithPassword({ email, password });
 
       if (error) {
@@ -152,6 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // provider and back) and consumed by the exchange in the effect above.
   const loginWithOAuth = useCallback(async (provider: string, accountType: string = 'ARTIST'): Promise<AuthResult> => {
     try {
+      const insforge = await getInsforge();
       const redirectTo = `${window.location.origin}/login`;
       const { data, error } = await insforge.auth.signInWithOAuth(provider, {
         redirectTo,
@@ -176,6 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = useCallback(async (name: string, email: string, password: string, accountType: string = 'ARTIST'): Promise<AuthResult> => {
     try {
+      const insforge = await getInsforge();
       const { data, error } = await insforge.auth.signUp({ email, password, name });
 
       if (error) {
@@ -200,6 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const verifyEmailCode = useCallback(async (email: string, otp: string, name?: string, accountType?: string): Promise<AuthResult> => {
     try {
+      const insforge = await getInsforge();
       const { data, error } = await insforge.auth.verifyEmail({ email, otp });
 
       if (error) {
@@ -219,6 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resendVerificationCode = useCallback(async (email: string): Promise<AuthResult> => {
     try {
+      const insforge = await getInsforge();
       const { error } = await insforge.auth.resendVerificationEmail({ email });
       if (error) return { success: false, error: error.message || 'Failed to resend code' };
       return { success: true };
@@ -229,6 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const forgotPassword = useCallback(async (email: string): Promise<AuthResult> => {
     try {
+      const insforge = await getInsforge();
       const { error } = await insforge.auth.sendResetPasswordEmail({ email });
       if (error) return { success: false, error: error.message || 'Failed to send reset code' };
       return { success: true };
@@ -239,6 +241,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetPasswordWithCode = useCallback(async (email: string, code: string, newPassword: string): Promise<AuthResult> => {
     try {
+      const insforge = await getInsforge();
       const { data: exchangeData, error: exchangeError } = await insforge.auth.exchangeResetPasswordToken({ email, code });
       if (exchangeError || !exchangeData?.token) {
         return { success: false, error: exchangeError?.message || 'Invalid or expired code' };
@@ -257,6 +260,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(async () => {
     try {
+      const insforge = await getInsforge();
       await insforge.auth.signOut();
     } catch {
       // Ignore - still clear the local session below regardless.
@@ -285,7 +289,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     isAuthenticated: !!user,
     isLoading,
-    oAuthProviders,
     login,
     loginWithOAuth,
     register,

@@ -1,20 +1,25 @@
-import { createClient } from '@insforge/sdk';
+import type { InsForgeClient } from '@insforge/sdk';
 
-// Auth front door only (signup/login/OAuth/email verification/password
-// reset) - see src/contexts/AuthContext.tsx. Business data, RBAC, and every
-// other API call still go through the existing custom API (src/services/api.ts).
-//
-// detectOAuthCallback: false - the SDK's own automatic OAuth handling runs
-// synchronously in this constructor, i.e. before AuthProvider's effect ever
-// gets a chance to run, and it strips `insforge_code` off the URL as part of
-// consuming it. That raced with (and always won against) the manual
-// exchange in AuthContext.tsx, which needs the raw accessToken to call this
-// app's own POST /auth/sync-insforge-user - the SDK's auto-exchange keeps
-// the resulting session private to itself, so our own backend session never
-// got created and the user bounced back to /login post-Google-auth. Only
-// our manual handling should ever consume that code.
-export const insforge = createClient({
-  baseUrl: import.meta.env.VITE_INSFORGE_URL,
-  anonKey: import.meta.env.VITE_INSFORGE_ANON_KEY,
-  auth: { detectOAuthCallback: false },
-});
+// Lazy-loaded on purpose. @insforge/sdk pulls in real weight (a Socket.IO
+// client for realtime among it) that has no reason to be in the bundle for
+// pages that never touch auth - the marketing homepage chief among them.
+// Every call site awaits this instead of importing a top-level client, so
+// Vite splits the SDK into its own chunk that's only fetched the first time
+// an actual auth action runs (login, register, password reset, OAuth).
+// `/auth/me` (session-restore-on-load, see AuthContext.tsx) never calls
+// this - it's a plain fetch against this app's own API and stays fast on
+// every page regardless of whether this chunk ever loads.
+let clientPromise: Promise<InsForgeClient> | null = null;
+
+export function getInsforge(): Promise<InsForgeClient> {
+  if (!clientPromise) {
+    clientPromise = import('@insforge/sdk').then(({ createClient }) =>
+      createClient({
+        baseUrl: import.meta.env.VITE_INSFORGE_URL,
+        anonKey: import.meta.env.VITE_INSFORGE_ANON_KEY,
+        auth: { detectOAuthCallback: false },
+      })
+    );
+  }
+  return clientPromise;
+}

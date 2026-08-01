@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Logo } from '../../components/Icons';
+import { validatePassword } from '../../src/utils/passwordPolicy';
 
 const ForgotPassword: React.FC = () => {
   const [step, setStep] = useState<'email' | 'reset'>('email');
@@ -36,8 +37,9 @@ const ForgotPassword: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters.');
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
     if (newPassword !== confirmPassword) {

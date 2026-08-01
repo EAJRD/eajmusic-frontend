@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { getInsforge } from '../../src/lib/insforge';
 
 const GoogleIcon: React.FC = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -28,12 +29,31 @@ const PROVIDER_ICON: Record<string, React.FC> = {
 
 // Providers come from the backend (oAuthProviders, via getPublicAuthConfig),
 // never hardcoded - so this list always matches what's actually enabled.
+// Fetched here (not in AuthContext) so pages that never render this
+// component - the marketing homepage chief among them - never trigger the
+// InsForge SDK to load at all.
 const OAuthButtons: React.FC<{ accountType?: string; label?: string }> = ({ accountType, label = 'Continue' }) => {
-  const { oAuthProviders, loginWithOAuth } = useAuth();
+  const { loginWithOAuth } = useAuth();
+  const [providers, setProviders] = React.useState<string[]>([]);
   const [error, setError] = React.useState('');
   const [pending, setPending] = React.useState<string | null>(null);
 
-  if (oAuthProviders.length === 0) return null;
+  React.useEffect(() => {
+    let cancelled = false;
+    getInsforge()
+      .then((insforge) => insforge.auth.getPublicAuthConfig())
+      .then(({ data }) => {
+        if (!cancelled) setProviders((data as any)?.oAuthProviders || []);
+      })
+      .catch(() => {
+        // Non-fatal - OAuth buttons just won't render.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (providers.length === 0) return null;
 
   const handleClick = async (provider: string) => {
     setError('');
@@ -64,7 +84,7 @@ const OAuthButtons: React.FC<{ accountType?: string; label?: string }> = ({ acco
       )}
 
       <div className="grid grid-cols-1 gap-3">
-        {oAuthProviders.map((provider) => {
+        {providers.map((provider) => {
           const Icon = PROVIDER_ICON[provider];
           if (!Icon) return null;
           return (

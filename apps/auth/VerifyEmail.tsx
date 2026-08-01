@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Logo } from '../../components/Icons';
+import { getPendingRegistration, clearPendingRegistration } from '../../src/utils/pendingRegistration';
 
 const VerifyEmail: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -15,13 +16,23 @@ const VerifyEmail: React.FC = () => {
   const [error, setError] = useState('');
   const [resendMessage, setResendMessage] = useState('');
 
+  // Recovers the name/accountType from a Register.tsx session that closed
+  // or reloaded before finishing this step (e.g. the Login.tsx redirect for
+  // an unverified account lands here with only ?email=, no registration
+  // context at all) - see pendingRegistration.ts for why this matters.
+  const [pending, setPending] = useState<{ name: string; accountType: string } | null>(null);
+  useEffect(() => {
+    setPending(email ? getPendingRegistration(email) : null);
+  }, [email]);
+
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const result = await verifyEmailCode(email, otp);
+      const result = await verifyEmailCode(email, otp, pending?.name, pending?.accountType);
       if (result.success) {
+        clearPendingRegistration();
         navigate('/dashboard', { replace: true });
       } else {
         setError(result.error || 'Invalid or expired code.');

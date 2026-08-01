@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { Logo } from '../../components/Icons';
+import { validatePassword } from '../../src/utils/passwordPolicy';
+import { savePendingRegistration, clearPendingRegistration } from '../../src/utils/pendingRegistration';
 import OAuthButtons from './OAuthButtons';
 
 const Register: React.FC = () => {
@@ -37,10 +39,9 @@ const Register: React.FC = () => {
       errors.email = 'Please enter a valid email address';
     }
 
-    if (formData.password.length < 8) {
-      errors.password = 'Password must be at least 8 characters';
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      errors.password = 'Password must contain uppercase, lowercase, and a number';
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) {
+      errors.password = passwordError;
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -70,6 +71,10 @@ const Register: React.FC = () => {
       );
 
       if (result.success && result.requireEmailVerification) {
+        // Survives a reload/tab-close before the OTP step below completes -
+        // see pendingRegistration.ts for why this matters (accountType would
+        // otherwise silently default to ARTIST regardless of what was chosen).
+        savePendingRegistration({ email: formData.email, name: formData.name, accountType: formData.accountType });
         setStep('verify');
       } else if (result.success) {
         navigate('/dashboard', { replace: true });
@@ -90,6 +95,7 @@ const Register: React.FC = () => {
     try {
       const result = await verifyEmailCode(formData.email, otp, formData.name, formData.accountType);
       if (result.success) {
+        clearPendingRegistration();
         navigate('/dashboard', { replace: true });
       } else {
         setError(result.error || 'Invalid or expired code.');
