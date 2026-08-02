@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import type { YAxisTickContentProps } from 'recharts';
 import { motion } from 'framer-motion';
 import { ArtistService } from '../../../src/services/api';
 import { getStatsSnapshotFallback } from '../../../src/utils/statsSnapshotFallback';
@@ -250,8 +251,13 @@ const TrackAnalytics: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart layout="vertical" data={countryData} margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
                                 <XAxis type="number" hide />
-                                <YAxis type="category" dataKey="countryCode" axisLine={false} tickLine={false} tick={({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
-                                    const info = COUNTRY_NAMES[payload.value] || { name: payload.value, flag: '🌍' };
+                                <YAxis type="category" dataKey="countryCode" axisLine={false} tickLine={false} tick={({ x, y, payload }: YAxisTickContentProps) => {
+                                    // recharts types x/y as `number | string` and payload.value
+                                    // as `any` - don't narrow them by hand here, that's what
+                                    // broke CI before: a narrower parameter type is not
+                                    // assignable to the callback recharts actually calls.
+                                    const country = String(payload?.value ?? '');
+                                    const info = COUNTRY_NAMES[country] || { name: country, flag: '🌍' };
                                     return (
                                         <g transform={`translate(${x},${y})`}>
                                             <text x={0} y={0} dy={4} textAnchor="end" fill="#64748b" fontSize="12" fontWeight="bold">
