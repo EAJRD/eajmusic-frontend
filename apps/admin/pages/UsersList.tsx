@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AdminService } from '../../../src/services/api';
+import { useAuth } from '../../../src/contexts/AuthContext';
+import { hasAdminPermission } from '../../../src/utils/adminPermissions';
 
 const ROLE_OPTIONS = ['All', 'ARTIST', 'LABEL', 'ADMIN'];
 const STATUS_OPTIONS = ['All', 'ACTIVE', 'PENDING', 'SUSPENDED'];
@@ -26,6 +28,14 @@ const relativeTime = (value?: string | null) => {
 };
 
 const UsersList: React.FC = () => {
+  const { user: currentUser } = useAuth();
+  const canChangeStatus = hasAdminPermission(currentUser, 'users:status');
+  const canChangePlan = hasAdminPermission(currentUser, 'users:write');
+  // Role changes are SUPER_ADMIN-only server-side (PATCH /admin/users/:id/role
+  // is requireRole('SUPER_ADMIN')); employees:manage is the synthetic
+  // permission only '*' matches. See adminPermissions.ts.
+  const canChangeRole = hasAdminPermission(currentUser, 'employees:manage');
+
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -328,55 +338,66 @@ const UsersList: React.FC = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-dark-800">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Management</h4>
+              {/* Action Buttons - each gated to the permission its endpoint
+                  requires, so read-only roles (SUPPORT looking up an account
+                  for a ticket, REVIEWER checking a submitter, FINANCE opening
+                  a wallet) see the record without controls that would 403. */}
+              {(canChangeStatus || canChangeRole || canChangePlan) && (
+                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-dark-800">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Management</h4>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-dark-900 border border-slate-100 dark:border-dark-800">
-                    <div>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">Account Status</p>
-                      <p className="text-xs text-slate-500">Current: {selectedUser.status}</p>
-                    </div>
-                    <button
-                      onClick={handleStatusToggle}
-                      disabled={mutating}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold text-white transition-colors disabled:opacity-50 ${selectedUser.status === 'SUSPENDED' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'}`}
-                    >
-                      {selectedUser.status === 'SUSPENDED' ? 'Activate Account' : 'Suspend Account'}
-                    </button>
-                  </div>
+                  <div className="space-y-3">
+                    {canChangeStatus && (
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-dark-900 border border-slate-100 dark:border-dark-800">
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 dark:text-white">Account Status</p>
+                          <p className="text-xs text-slate-500">Current: {selectedUser.status}</p>
+                        </div>
+                        <button
+                          onClick={handleStatusToggle}
+                          disabled={mutating}
+                          className={`px-4 py-1.5 rounded-lg text-xs font-bold text-white transition-colors disabled:opacity-50 ${selectedUser.status === 'SUSPENDED' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'}`}
+                        >
+                          {selectedUser.status === 'SUSPENDED' ? 'Activate Account' : 'Suspend Account'}
+                        </button>
+                      </div>
+                    )}
 
-                  <div className="flex flex-col gap-2 p-3 rounded-lg bg-slate-50 dark:bg-dark-900 border border-slate-100 dark:border-dark-800">
-                    <label className="text-sm font-bold text-slate-900 dark:text-white">Change Role</label>
-                    <select
-                      value={selectedUser.role}
-                      onChange={(e) => handleChangeRole(e.target.value)}
-                      disabled={mutating}
-                      className="p-2 bg-white dark:bg-card-dark border border-slate-200 dark:border-dark-800 rounded-lg text-sm focus:outline-none focus:border-brand-500"
-                    >
-                      <option value="ARTIST">Artist</option>
-                      <option value="LABEL">Label</option>
-                      <option value="ADMIN">Admin</option>
-                    </select>
-                  </div>
+                    {canChangeRole && (
+                      <div className="flex flex-col gap-2 p-3 rounded-lg bg-slate-50 dark:bg-dark-900 border border-slate-100 dark:border-dark-800">
+                        <label className="text-sm font-bold text-slate-900 dark:text-white">Change Role</label>
+                        <select
+                          value={selectedUser.role}
+                          onChange={(e) => handleChangeRole(e.target.value)}
+                          disabled={mutating}
+                          className="p-2 bg-white dark:bg-card-dark border border-slate-200 dark:border-dark-800 rounded-lg text-sm focus:outline-none focus:border-brand-500"
+                        >
+                          <option value="ARTIST">Artist</option>
+                          <option value="LABEL">Label</option>
+                          <option value="ADMIN">Admin</option>
+                        </select>
+                      </div>
+                    )}
 
-                  <div className="flex flex-col gap-2 p-3 rounded-lg bg-slate-50 dark:bg-dark-900 border border-slate-100 dark:border-dark-800">
-                    <label className="text-sm font-bold text-slate-900 dark:text-white">Change Plan</label>
-                    <select
-                      value={selectedUser.subscription?.plan || 'FREE'}
-                      onChange={(e) => handleChangePlan(e.target.value)}
-                      disabled={mutating}
-                      className="p-2 bg-white dark:bg-card-dark border border-slate-200 dark:border-dark-800 rounded-lg text-sm focus:outline-none focus:border-brand-500"
-                    >
-                      <option value="FREE">FREE</option>
-                      <option value="PRO">PRO</option>
-                      <option value="LABEL_PLUS">LABEL PLUS</option>
-                      <option value="ENTERPRISE">ENTERPRISE</option>
-                    </select>
+                    {canChangePlan && (
+                      <div className="flex flex-col gap-2 p-3 rounded-lg bg-slate-50 dark:bg-dark-900 border border-slate-100 dark:border-dark-800">
+                        <label className="text-sm font-bold text-slate-900 dark:text-white">Change Plan</label>
+                        <select
+                          value={selectedUser.subscription?.plan || 'FREE'}
+                          onChange={(e) => handleChangePlan(e.target.value)}
+                          disabled={mutating}
+                          className="p-2 bg-white dark:bg-card-dark border border-slate-200 dark:border-dark-800 rounded-lg text-sm focus:outline-none focus:border-brand-500"
+                        >
+                          <option value="FREE">FREE</option>
+                          <option value="PRO">PRO</option>
+                          <option value="LABEL_PLUS">LABEL PLUS</option>
+                          <option value="ENTERPRISE">ENTERPRISE</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Recent Releases */}
               <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-dark-800">

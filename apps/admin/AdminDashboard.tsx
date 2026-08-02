@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { hasAdminPermission } from '../../src/utils/adminPermissions';
 import { Logo } from '../../components/Icons';
 import ConnectionStatusBadge from '../../components/ConnectionStatusBadge';
 import AdminOverview from './pages/AdminOverview';
@@ -18,10 +19,41 @@ import ContributorMatches from './pages/ContributorMatches';
 
 export type AdminTab = 'overview' | 'plans' | 'announcements' | 'tickets' | 'brand' | 'releases' | 'users' | 'settings' | 'finance' | 'team' | 'testimonials' | 'contributor-matches';
 
+// The permission each tab's underlying API calls actually require, so the
+// sidebar shows a role exactly the tabs it can use. Previously every role saw
+// every tab and only found out it couldn't use one by clicking through to a
+// 403 - a SUPPORT agent was shown Finance Hub and Settings.
+const TAB_PERMISSIONS: Record<AdminTab, string> = {
+  overview: 'dashboard:read',
+  releases: 'releases:read',
+  users: 'users:read',
+  finance: 'finance:read',
+  // Plans & Brand both read/write PlatformSettings, so they follow
+  // settings:*, which is SUPER_ADMIN-only under the matrix.
+  plans: 'settings:write',
+  announcements: 'announcements:manage',
+  tickets: 'tickets:read',
+  testimonials: 'testimonials:moderate',
+  'contributor-matches': 'contributors:approve',
+  // No role declares employees:manage, so only SUPER_ADMIN's '*' matches it -
+  // matching POST /admin/users, which is requireRole('SUPER_ADMIN').
+  team: 'employees:manage',
+  brand: 'settings:write',
+  settings: 'settings:read',
+};
+
+// First tab a role lands on, in preference order - the first one they can
+// actually open wins. Without this, SUPPORT/REVIEWER would open the panel on
+// Overview, which needs dashboard:read (revenue totals) that they don't have.
+const LANDING_TAB_ORDER: AdminTab[] = ['overview', 'tickets', 'releases', 'finance', 'users'];
+
 const AdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const canSee = (tab: AdminTab) => hasAdminPermission(user, TAB_PERMISSIONS[tab]);
+  const [activeTab, setActiveTab] = useState<AdminTab>(
+    () => LANDING_TAB_ORDER.find((tab) => hasAdminPermission(user, TAB_PERMISSIONS[tab])) || 'tickets'
+  );
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -35,6 +67,18 @@ const AdminDashboard: React.FC = () => {
   };
 
   const renderContent = () => {
+    // Defense in depth - never render a panel this role can't use, even if
+    // activeTab got there some other way than the (already gated) sidebar.
+    if (!canSee(activeTab)) {
+      return (
+        <div className="p-20 text-center">
+          <span className="material-symbols-outlined text-5xl text-slate-400">lock</span>
+          <p className="mt-4 font-bold">No tienes acceso a esta sección</p>
+          <p className="text-sm text-slate-400 mt-1">Tu rol ({user?.role}) no incluye este permiso.</p>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'plans':
         return <PlansAndCommissions />;
@@ -108,52 +152,70 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         <div className="p-4 space-y-1 overflow-y-auto flex-1">
-          <p className="px-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 mt-2">Main</p>
-          <NavItem
-            icon="dashboard"
-            label="Overview"
-            isActive={activeTab === 'overview'}
-            onClick={() => selectTab('overview')}
-          />
-          <NavItem
-            icon="graphic_eq"
-            label="Releases"
-            isActive={activeTab === 'releases'}
-            onClick={() => selectTab('releases')}
-          />
-          <NavItem
-            icon="people"
-            label="Users & Artists"
-            isActive={activeTab === 'users'}
-            onClick={() => selectTab('users')}
-          />
+          {(canSee('overview') || canSee('releases') || canSee('users')) && (
+            <p className="px-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 mt-2">Main</p>
+          )}
+          {canSee('overview') && (
+            <NavItem
+              icon="dashboard"
+              label="Overview"
+              isActive={activeTab === 'overview'}
+              onClick={() => selectTab('overview')}
+            />
+          )}
+          {canSee('releases') && (
+            <NavItem
+              icon="graphic_eq"
+              label="Releases"
+              isActive={activeTab === 'releases'}
+              onClick={() => selectTab('releases')}
+            />
+          )}
+          {canSee('users') && (
+            <NavItem
+              icon="people"
+              label="Users & Artists"
+              isActive={activeTab === 'users'}
+              onClick={() => selectTab('users')}
+            />
+          )}
 
-          <p className="px-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 mt-6">Management</p>
-          <NavItem
-            icon="account_balance"
-            label="Finance Hub"
-            isActive={activeTab === 'finance'}
-            onClick={() => selectTab('finance')}
-          />
-          <NavItem
-            icon="payments"
-            label="Plans & Pricing"
-            isActive={activeTab === 'plans'}
-            onClick={() => selectTab('plans')}
-          />
-          <NavItem
-            icon="campaign"
-            label="Announcements"
-            isActive={activeTab === 'announcements'}
-            onClick={() => selectTab('announcements')}
-          />
-          <NavItem
-            icon="support_agent"
-            label="Support Tickets"
-            isActive={activeTab === 'tickets'}
-            onClick={() => selectTab('tickets')}
-          />
-          {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+          {(canSee('finance') || canSee('plans') || canSee('announcements') || canSee('tickets') || canSee('testimonials') || canSee('contributor-matches')) && (
+            <p className="px-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 mt-6">Management</p>
+          )}
+          {canSee('finance') && (
+            <NavItem
+              icon="account_balance"
+              label="Finance Hub"
+              isActive={activeTab === 'finance'}
+              onClick={() => selectTab('finance')}
+            />
+          )}
+          {canSee('plans') && (
+            <NavItem
+              icon="payments"
+              label="Plans & Pricing"
+              isActive={activeTab === 'plans'}
+              onClick={() => selectTab('plans')}
+            />
+          )}
+          {canSee('announcements') && (
+            <NavItem
+              icon="campaign"
+              label="Announcements"
+              isActive={activeTab === 'announcements'}
+              onClick={() => selectTab('announcements')}
+            />
+          )}
+          {canSee('tickets') && (
+            <NavItem
+              icon="support_agent"
+              label="Support Tickets"
+              isActive={activeTab === 'tickets'}
+              onClick={() => selectTab('tickets')}
+            />
+          )}
+          {canSee('testimonials') && (
             <NavItem
               icon="reviews"
               label="Testimonials"
@@ -161,7 +223,7 @@ const AdminDashboard: React.FC = () => {
               onClick={() => selectTab('testimonials')}
             />
           )}
-          {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+          {canSee('contributor-matches') && (
             <NavItem
               icon="link"
               label="Contributor Matches"
@@ -170,8 +232,10 @@ const AdminDashboard: React.FC = () => {
             />
           )}
 
-          <p className="px-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 mt-6">System</p>
-          {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+          {(canSee('team') || canSee('brand') || canSee('settings')) && (
+            <p className="px-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 mt-6">System</p>
+          )}
+          {canSee('team') && (
             <NavItem
               icon="badge"
               label="Team"
@@ -179,18 +243,22 @@ const AdminDashboard: React.FC = () => {
               onClick={() => selectTab('team')}
             />
           )}
-          <NavItem
-            icon="palette"
-            label="Whitelabel / Brand"
-            isActive={activeTab === 'brand'}
-            onClick={() => selectTab('brand')}
-          />
-          <NavItem
-            icon="settings"
-            label="Settings"
-            isActive={activeTab === 'settings'}
-            onClick={() => selectTab('settings')}
-          />
+          {canSee('brand') && (
+            <NavItem
+              icon="palette"
+              label="Whitelabel / Brand"
+              isActive={activeTab === 'brand'}
+              onClick={() => selectTab('brand')}
+            />
+          )}
+          {canSee('settings') && (
+            <NavItem
+              icon="settings"
+              label="Settings"
+              isActive={activeTab === 'settings'}
+              onClick={() => selectTab('settings')}
+            />
+          )}
         </div>
 
         <div className="p-4 border-t border-slate-200 dark:border-dark-800">
