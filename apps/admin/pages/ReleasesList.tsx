@@ -23,6 +23,30 @@ const formatDuration = (ms?: number | null) => {
 
 const artistNameOf = (release: any) => release?.artistProfile?.name || release?.user?.name || 'Unknown Artist';
 
+const formatList = (values?: unknown) =>
+  Array.isArray(values) && values.length > 0 ? values.join(', ') : 'All';
+
+// Covers are deliberately not fetched through a public fallback URL. A 403
+// means the API did not authorize the file; show the reviewer a useful state
+// instead of a broken image. The API must return an admin-authorized URL (or
+// a short-lived signed URL) for the artwork itself to become viewable.
+const ReleaseCover: React.FC<{ src?: string | null; alt: string; className: string; compact?: boolean }> = ({ src, alt, className, compact = false }) => {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => setFailed(false), [src]);
+
+  if (!src || failed) {
+    return (
+      <div className={`${className} flex flex-col items-center justify-center bg-slate-100 dark:bg-dark-900 text-slate-400 text-center p-2`} title={failed ? 'Cover access was denied by the API.' : 'No cover art was uploaded.'}>
+        <span className={`material-symbols-outlined ${compact ? 'text-lg' : 'text-4xl'}`}>{failed ? 'lock' : 'album'}</span>
+        {!compact && <span className="mt-2 text-xs font-bold">{failed ? 'Cover access denied' : 'No cover uploaded'}</span>}
+      </div>
+    );
+  }
+
+  return <img src={src} alt={alt} className={className} loading={compact ? 'lazy' : undefined} onError={() => setFailed(true)} />;
+};
+
 const ReleasesList: React.FC = () => {
   const [releases, setReleases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,11 +203,11 @@ const ReleasesList: React.FC = () => {
                 <tr key={release.id} className="hover:bg-slate-50 dark:hover:bg-dark-900/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={release.coverArtUrl || 'https://placehold.co/80x80/1a1a2e/7c3aed?text=%E2%99%AA'}
-                        alt="Cover"
-                        className="w-10 h-10 rounded-lg object-cover"
-                        loading="lazy"
+                      <ReleaseCover
+                        src={release.coverArtUrl}
+                        alt={`Cover for ${release.title}`}
+                        className="w-10 h-10 rounded-lg object-cover shrink-0"
+                        compact
                       />
                       <div>
                         <p className="font-bold text-slate-900 dark:text-white text-sm">{release.title}</p>
@@ -269,9 +293,9 @@ const ReleasesList: React.FC = () => {
                 {/* Left Col: Artwork & Actions */}
                 <div className="space-y-6">
                   <div className="aspect-square rounded-xl overflow-hidden border border-slate-200 dark:border-dark-800 shadow-sm bg-white dark:bg-dark-900">
-                    <img
-                      src={selectedRelease.coverArtUrl || 'https://placehold.co/800x800/1a1a2e/7c3aed?text=Cover+Art'}
-                      alt="Cover"
+                    <ReleaseCover
+                      src={selectedRelease.coverArtUrl}
+                      alt={`Cover for ${selectedRelease.title}`}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -333,11 +357,12 @@ const ReleasesList: React.FC = () => {
 
                 {/* Right Col: Metadata */}
                 <div className="lg:col-span-2 space-y-6">
-                  <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-dark-800 p-6 shadow-sm space-y-6">
-                    <div>
-                      <h3 className="text-2xl font-black text-slate-900 dark:text-white">{selectedRelease.title}</h3>
-                      <p className="text-lg font-bold text-brand-500">{artistNameOf(selectedRelease)}</p>
-                    </div>
+                    <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-dark-800 p-6 shadow-sm space-y-6">
+                      <div>
+                        <h3 className="text-2xl font-black text-slate-900 dark:text-white">{selectedRelease.title}</h3>
+                        <p className="text-lg font-bold text-brand-500">{artistNameOf(selectedRelease)}</p>
+                        <p className="mt-1 text-xs text-slate-500">Owner: {selectedRelease.user?.email || selectedRelease.artistProfile?.user?.email || 'Not returned by API'}</p>
+                      </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       <div>
@@ -364,6 +389,26 @@ const ReleasesList: React.FC = () => {
                         <p className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Status</p>
                         <p className="text-sm font-medium">{selectedRelease.status}</p>
                       </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Release Date</p>
+                        <p className="text-sm font-medium">{formatDate(selectedRelease.releaseDate)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Original Date</p>
+                        <p className="text-sm font-medium">{formatDate(selectedRelease.originalReleaseDate)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Catalog Number</p>
+                        <p className="font-mono text-sm">{selectedRelease.catalogNumber || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Version / Subgenre</p>
+                        <p className="text-sm font-medium">{[selectedRelease.version, selectedRelease.subgenre].filter(Boolean).join(' · ') || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Explicit</p>
+                        <p className="text-sm font-medium">{selectedRelease.isExplicit ? 'Yes' : 'No'}</p>
+                      </div>
                     </div>
 
                     <div className="pt-4 border-t border-slate-100 dark:border-dark-800 space-y-2">
@@ -379,14 +424,33 @@ const ReleasesList: React.FC = () => {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-dark-800 p-6 shadow-sm">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Distribution</h4>
+                      <dl className="space-y-3 text-sm">
+                        <div><dt className="text-xs font-bold text-slate-500 uppercase">Stores</dt><dd className="mt-1 text-slate-800 dark:text-slate-200">{formatList(selectedRelease.selectedStores)}</dd></div>
+                        <div><dt className="text-xs font-bold text-slate-500 uppercase">Territories</dt><dd className="mt-1 text-slate-800 dark:text-slate-200">{formatList(selectedRelease.territories)}</dd></div>
+                      </dl>
+                    </div>
+                    <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-dark-800 p-6 shadow-sm">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Audit trail</h4>
+                      <dl className="space-y-3 text-sm">
+                        <div><dt className="text-xs font-bold text-slate-500 uppercase">Created</dt><dd className="mt-1">{formatDate(selectedRelease.createdAt)}</dd></div>
+                        <div><dt className="text-xs font-bold text-slate-500 uppercase">Submitted</dt><dd className="mt-1">{formatDate(selectedRelease.submittedAt)}</dd></div>
+                        <div><dt className="text-xs font-bold text-slate-500 uppercase">Release ID</dt><dd className="mt-1 font-mono break-all text-xs">{selectedRelease.id}</dd></div>
+                      </dl>
+                    </div>
+                  </div>
+
                   {/* Tracklist */}
                   <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-dark-800 p-6 shadow-sm">
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Tracklist ({selectedRelease.tracks?.length || 0})</h4>
                     <div className="space-y-2">
                       {selectedRelease.tracks?.map((track: any, idx: number) => (
-                        <div key={track.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-dark-900 border border-slate-100 dark:border-dark-800">
+                        <div key={track.id || idx} className="p-3 rounded-lg bg-slate-50 dark:bg-dark-900 border border-slate-100 dark:border-dark-800">
+                          <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <span className="text-sm font-bold text-slate-400 w-4">{idx + 1}</span>
+                            <span className="text-sm font-bold text-slate-400 w-4">{track.trackNumber || idx + 1}</span>
                             <div>
                               <p className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                 {track.title}
@@ -395,23 +459,25 @@ const ReleasesList: React.FC = () => {
                               <p className="text-xs font-mono text-slate-500">ISRC: {track.isrc || 'Pending'}</p>
                             </div>
                           </div>
-                          <span className="text-sm font-medium text-slate-500">{formatDuration(track.durationMs)}</span>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-slate-500">{formatDuration(track.durationMs)}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{track.status || 'Pending'}</p>
+                          </div>
+                          </div>
+                          {Array.isArray(track.contributors) && track.contributors.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-slate-200 dark:border-dark-800 flex flex-wrap gap-2">
+                              {track.contributors.map((contributor: any, contributorIndex: number) => (
+                                <span key={`${track.id || idx}-${contributorIndex}`} className="px-2 py-1 rounded-md bg-white dark:bg-card-dark border border-slate-200 dark:border-dark-700 text-xs text-slate-600 dark:text-slate-300">
+                                  <strong>{contributor.name}</strong> · {String(contributor.role || '').replaceAll('_', ' ')}{contributor.royaltyPercentage !== undefined ? ` · ${contributor.royaltyPercentage}%` : ''}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Stores */}
-                  <div className="bg-white dark:bg-card-dark rounded-xl border border-slate-200 dark:border-dark-800 p-6 shadow-sm">
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Selected Stores</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {(Array.isArray(selectedRelease.selectedStores) ? selectedRelease.selectedStores : ['all']).map((store: string, idx: number) => (
-                        <span key={idx} className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-dark-800 text-sm font-medium text-slate-700 dark:text-slate-300 capitalize">
-                          {store === 'all' ? 'All Stores' : store}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>

@@ -1,10 +1,10 @@
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
+import React, { Suspense, lazy, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute, AdminRoute, ArtistRoute, PublicOnlyRoute } from './components/ProtectedRoute';
 import AnnouncementBanner from '../components/AnnouncementBanner';
-import { APP_MODE } from './utils/subdomain';
+import { APP_MODE, goToApp } from './utils/subdomain';
 
 // ===========================================
 // Build-time app-mode gating for code-splitting
@@ -59,6 +59,20 @@ const PageLoader: React.FC = () => (
     </div>
   </div>
 );
+
+// The marketing domain must never host the admin experience. Keeping a
+// single redirect here also means links to /admin/reviews (or a bookmarked
+// /admin URL with a query string) land on the isolated admin subdomain.
+const AdminDomainRedirect: React.FC = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const adminPath = location.pathname.replace(/^\/admin(?=\/|$)/, '') || '/';
+    goToApp('admin', `${adminPath}${location.search}${location.hash}`);
+  }, [location.hash, location.pathname, location.search]);
+
+  return <PageLoader />;
+};
 
 // 404 Page
 const NotFound: React.FC = () => (
@@ -157,14 +171,7 @@ const MainAppRoutes: React.FC = () => (
       }
     />
 
-    <Route
-      path="/admin/*"
-      element={
-        <AdminRoute>
-          <AdminDashboard />
-        </AdminRoute>
-      }
-    />
+    <Route path="/admin/*" element={<AdminDomainRedirect />} />
 
     {/* Legacy redirects */}
     <Route path="/artist" element={<Navigate to="/dashboard" replace />} />
