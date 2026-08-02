@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArtistService, UploadService } from '../../../src/services/api';
+import type { ContributorRole } from '../../../src/types/api';
 import { useAuth } from '../../../src/contexts/AuthContext';
 
 interface NewReleaseProps {
@@ -291,12 +292,12 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
         ));
     };
 
-    const RELEASE_TYPE_MAP: Record<string, string> = { Single: 'SINGLE', EP: 'EP', Album: 'ALBUM' };
+    const RELEASE_TYPE_MAP: Record<string, 'SINGLE' | 'EP' | 'ALBUM' | 'COMPILATION'> = { Single: 'SINGLE', EP: 'EP', Album: 'ALBUM' };
     const LANGUAGE_MAP: Record<string, string> = {
         English: 'EN', Spanish: 'ES', French: 'FR', German: 'DE', Portuguese: 'PT',
         Italian: 'IT', Japanese: 'JA', Korean: 'KO', Mandarin: 'ZH', Other: 'EN',
     };
-    const CONTRIBUTOR_ROLE_MAP: Record<string, string> = {
+    const CONTRIBUTOR_ROLE_MAP: Record<string, ContributorRole> = {
         'Primary Artist': 'PRIMARY_ARTIST',
         'Featured Artist': 'FEATURED',
         'Producer': 'PRODUCER',

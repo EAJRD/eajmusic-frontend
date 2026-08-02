@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { ArtistService, AuthService, UploadService } from '../../src/services/api';
 import { isLabel } from '../../src/utils/capabilities';
+import type { ArtistStats } from '../../src/types/api';
 import { Logo } from '../../components/Icons';
 import ThemeToggle from '../../components/ThemeToggle';
 import NewRelease from './pages/NewRelease';
@@ -246,15 +247,6 @@ const NavItem = ({ icon, label, isActive, onClick, badge }: { icon: string, labe
   </button>
 );
 
-interface OverviewStats {
-  totalStreams: number;
-  totalRevenue: number;
-  availableBalance: number;
-  pendingBalance: number;
-  monthlyListeners: number;
-  followers: number;
-}
-
 interface OverviewRelease {
   id: string;
   title: string;
@@ -285,7 +277,7 @@ const RELEASE_STATUS_STYLES: Record<string, string> = {
 
 const ArtistOverview = ({ onUploadClick }: { onUploadClick: () => void }) => {
   const { user } = useAuth();
-  const [stats, setStats] = useState<OverviewStats | null>(null);
+  const [stats, setStats] = useState<ArtistStats | null>(null);
   const [releases, setReleases] = useState<OverviewRelease[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -8,6 +8,7 @@ interface SocialLinks {
     twitter: string;
     spotify: string;
     soundcloud: string;
+    [key: string]: string;
 }
 
 const Profile: React.FC = () => {
@@ -40,7 +41,7 @@ const Profile: React.FC = () => {
         const fetchProfile = async () => {
             try {
                 const res = await ArtistService.getProfiles();
-                const profile = res?.profiles?.[0];
+                const profile = res?.[0];
                 if (profile) {
                     setProfileId(profile.id);
                     setFormData({
@@ -113,7 +114,7 @@ const Profile: React.FC = () => {
                     bio: formData.bio,
                     socialLinks: formData.socialLinks,
                 });
-                if (res?.profile?.id) setProfileId(res.profile.id);
+                if (res?.id) setProfileId(res.id);
             }
             showToast('Profile updated successfully');
         } catch (err: any) {

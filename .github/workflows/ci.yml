@@ -31,11 +31,5 @@ jobs:
       - name: Run unit tests (auth flow utils, password policy, ticket contract helpers)
         run: npm test
 
-      # Report-only for now: the codebase has pre-existing type errors
-      # (API contract/dashboard/wallet/release/analytics types) predating
-      # this workflow. Blocking merges on them today would fail every PR,
-      # including ones unrelated to those files. Once that backlog is
-      # cleared, drop `continue-on-error` so this actually gates merges.
-      - name: Typecheck (report-only until pre-existing errors are cleared)
+      - name: Typecheck
         run: npm run typecheck
-        continue-on-error: true

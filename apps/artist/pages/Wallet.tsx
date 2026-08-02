@@ -38,7 +38,7 @@ const Wallet: React.FC = () => {
                     api.get<{ configured: boolean }>('/payment/ath-movil/config').catch(() => null),
                 ]);
 
-                setWallet(walletRes?.wallet || { availableBalance: 0, pendingBalance: 0, lifetimeEarnings: 0 });
+                setWallet(walletRes || { availableBalance: 0, pendingBalance: 0, lifetimeEarnings: 0 });
                 setTransactions(txRes?.transactions || []);
                 setAthMovilConfigured(!!athRes?.configured);
             } catch (err: any) {
@@ -60,7 +60,7 @@ const Wallet: React.FC = () => {
             setIsModalOpen(false);
             setPayoutAmount('');
             const walletRes = await ArtistService.getWallet().catch(() => null);
-            if (walletRes?.wallet) setWallet(walletRes.wallet);
+            if (walletRes) setWallet(walletRes);
             setTimeout(() => setRequestSuccess(''), 4000);
         } catch (err: any) {
             setRequestError(err.message || 'Failed to request payout.');

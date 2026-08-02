@@ -67,6 +67,64 @@ export interface Track {
   audioUrl: string | null;
 }
 
+export type ContributorRole =
+  | 'PRIMARY_ARTIST'
+  | 'FEATURED'
+  | 'PRODUCER'
+  | 'CO_PRODUCER'
+  | 'SONGWRITER'
+  | 'COMPOSER'
+  | 'LYRICIST'
+  | 'MIXER'
+  | 'MASTERING';
+
+// Request-side shapes for POST/PATCH /artist/releases - distinct from the
+// Release/Track response types above, which describe server-computed fields
+// (id, status, audioUrl, durationMs) that don't exist yet at submit time.
+// See eajmusic-api's src/validators/release.js (createReleaseSchema).
+export interface CreateReleaseTrackInput {
+  title: string;
+  version?: string | null;
+  trackNumber: number;
+  discNumber?: number;
+  isrc?: string | null;
+  isExplicit?: boolean;
+  lyrics?: string | null;
+  lyricsLanguage?: string | null;
+  audioKey?: string | null;
+  contributors?: Array<{
+    name: string;
+    role: ContributorRole;
+    royaltyPercentage?: number;
+    ipiNumber?: string | null;
+  }>;
+}
+
+export interface CreateReleaseInput {
+  title: string;
+  version?: string | null;
+  releaseType: 'SINGLE' | 'EP' | 'ALBUM' | 'COMPILATION';
+  genre: string;
+  subgenre?: string | null;
+  language?: string;
+  releaseDate: string;
+  originalReleaseDate?: string | null;
+  upc?: string | null;
+  catalogNumber?: string | null;
+  cLineYear?: number | null;
+  cLineText?: string | null;
+  pLineYear?: number | null;
+  pLineText?: string | null;
+  isExplicit?: boolean;
+  selectedStores?: string[];
+  territories?: string[];
+  coverArtKey?: string | null;
+  tracks: CreateReleaseTrackInput[];
+  artistProfileId?: string | null;
+  labelId?: string | null;
+  idempotencyKey?: string | null;
+}
+
 export interface Wallet {
   availableBalance: number;
   pendingBalance: number;
@@ -81,6 +139,10 @@ export interface ArtistStats {
   totalEarnings: number;
   monthlyGrowth: number;
   activeTracks: number;
+  availableBalance: number;
+  pendingBalance: number;
+  monthlyListeners: number;
+  followers: number;
 }
 
 export interface AdminStats {

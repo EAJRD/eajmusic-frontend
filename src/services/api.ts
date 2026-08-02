@@ -297,6 +297,7 @@ import type {
   AuthResponse,
   User,
   Release,
+  CreateReleaseInput,
   Wallet,
   ArtistStats,
   AdminStats,
@@ -378,27 +379,35 @@ export const ArtistService = {
 
   getRelease: (id: string) => api.get<Release>(`/artist/releases/${id}`),
 
-  createRelease: (data: Partial<Release>) => api.post<Release>('/artist/releases', data),
+  createRelease: (data: CreateReleaseInput) => api.post<Release>('/artist/releases', data),
 
-  updateRelease: (id: string, data: Partial<Release>) => api.patch<Release>(`/artist/releases/${id}`, data),
+  updateRelease: (id: string, data: Partial<CreateReleaseInput> & { status?: 'DRAFT' | 'PENDING' }) =>
+    api.patch<Release>(`/artist/releases/${id}`, data),
 
   submitRelease: (id: string) =>
     api.post<{ success: boolean; message: string }>(`/artist/releases/${id}/submit`, { agreedToTerms: true }),
 
   deleteRelease: (id: string) => api.delete<{ success: boolean }>(`/artist/releases/${id}`),
 
-  getProfiles: () => api.get<Array<{ id: string; name: string; avatarUrl: string | null; isVerified: boolean }>>('/artist/profiles'),
+  getProfiles: () => api.get<Array<{ id: string; name: string; bio: string | null; avatarUrl: string | null; isVerified: boolean; socialLinks: Record<string, string> | null }>>('/artist/profiles'),
 
-  createProfile: (data: { name: string; bio?: string }) =>
-    api.post<{ id: string; name: string }>('/artist/profiles', data),
+  createProfile: (data: { name: string; bio?: string; socialLinks?: Record<string, string> }) =>
+    api.post<{ id: string; name: string; bio: string | null; avatarUrl: string | null; socialLinks: Record<string, string> | null }>('/artist/profiles', data),
 
-  updateProfile: (id: string, data: Partial<{ name: string; bio: string; avatarUrl: string }>) =>
-    api.patch<{ success: boolean }>(`/artist/profiles/${id}`, data),
+  updateProfile: (id: string, data: Partial<{ name: string; bio: string; avatarUrl: string; socialLinks: Record<string, string> }>) =>
+    api.patch<{ success: boolean; message: string; profile: { id: string; name: string; bio: string | null; avatarUrl: string | null; socialLinks: Record<string, string> | null } }>(`/artist/profiles/${id}`, data),
 
   getAnalytics: (period?: string) =>
-    api.get<{ streams: number; revenue: number; topCountries: Array<{ country: string; streams: number }> }>(
-      `/artist/analytics/overview${period ? `?period=${period}` : ''}`
-    ),
+    api.get<{
+      streams: number;
+      revenue: number;
+      topCountries: Array<{ country: string | null; streams: number }>;
+      period: string;
+      dailyStats: Array<{ date: string; _sum: { streams: number | null; saves: number | null; playlistAdds: number | null; revenueNet: number | null } }>;
+      topTracks: Array<{ trackId: string; _sum: { streams: number | null; revenueNet: number | null }; track?: { id: string; title: string; release?: { title: string; coverArtUrl: string | null } } }>;
+      countryBreakdown: Array<{ countryCode: string | null; streams: number; percent: number }>;
+      totals: { streams: number; revenue: number; saves: number; playlistAdds: number };
+    }>(`/artist/analytics/overview${period ? `?period=${period}` : ''}`),
 
   getWallet: () => api.get<Wallet>('/artist/wallet'),
 
@@ -448,7 +457,7 @@ export const AdminService = {
     return api.get<PaginatedResponse<User>>(`/admin/users${query ? `?${query}` : ''}`);
   },
 
-  getUser: (id: string) => api.get<User>(`/admin/users/${id}`),
+  getUser: (id: string) => api.get<{ user: User }>(`/admin/users/${id}`),
 
   // Creates an employee account (SUPPORT/REVIEWER/FINANCE/ADMIN) — SUPER_ADMIN only.
   // No password: the new employee signs up themselves (InsForge requires a
@@ -469,12 +478,14 @@ export const AdminService = {
 
   getReleases: (params?: { status?: string; search?: string; page?: number }) => {
     const query = buildQuery(params);
-    return api.get<PaginatedResponse<Release>>(`/admin/releases${query ? `?${query}` : ''}`);
+    return api.get<{ releases: Release[]; pagination: { page: number; limit: number; total: number; pages: number } }>(
+      `/admin/releases${query ? `?${query}` : ''}`
+    );
   },
 
   getPendingReleases: () => api.get<Release[]>('/admin/releases/pending'),
 
-  getRelease: (id: string) => api.get<Release>(`/admin/releases/${id}`),
+  getRelease: (id: string) => api.get<{ release: Release }>(`/admin/releases/${id}`),
 
   reviewRelease: (id: string, action: 'APPROVE' | 'REJECT', reason?: string) =>
     api.post<{ success: boolean; message: string }>(`/admin/releases/${id}/review`, { action, reason }),
@@ -486,7 +497,9 @@ export const AdminService = {
 
   getPayouts: (params?: { status?: string; page?: number }) => {
     const query = buildQuery(params);
-    return api.get<PaginatedResponse<Payout>>(`/admin/payouts${query ? `?${query}` : ''}`);
+    return api.get<{ payouts: Payout[]; pagination: { page: number; limit: number; total: number; pages: number } }>(
+      `/admin/payouts${query ? `?${query}` : ''}`
+    );
   },
 
   processPayout: (id: string, action: 'COMPLETE' | 'FAIL', transactionId?: string, failureReason?: string) =>
@@ -495,13 +508,13 @@ export const AdminService = {
   bulkCompletePayout: (payouts: Array<{ email: string; amount: number; method: string; transactionId: string }>) =>
     api.post<{ success: boolean; processed: number }>('/admin/payouts/bulk-complete', { payouts }),
 
-  getAnnouncements: () => api.get<Announcement[]>('/admin/announcements'),
+  getAnnouncements: () => api.get<{ announcements: Announcement[] }>('/admin/announcements'),
 
-  createAnnouncement: (data: { title: string; content: string; type: string }) =>
-    api.post<Announcement>('/admin/announcements', data),
+  createAnnouncement: (data: { title: string; content: string; type: string; targetAudience?: string; startsAt?: string; expiresAt?: string }) =>
+    api.post<{ success: boolean; message: string; announcement: Announcement }>('/admin/announcements', data),
 
   updateAnnouncement: (id: string, data: Partial<Announcement>) =>
-    api.patch<Announcement>(`/admin/announcements/${id}`, data),
+    api.patch<{ success: boolean; message: string; announcement: Announcement }>(`/admin/announcements/${id}`, data),
 
   deleteAnnouncement: (id: string) => api.delete<{ success: boolean }>(`/admin/announcements/${id}`),
 
@@ -533,9 +546,18 @@ export const AdminService = {
 
   getAuditLogs: (params?: { userId?: string; action?: string; page?: number; limit?: number }) => {
     const query = buildQuery(params);
-    return api.get<PaginatedResponse<{ id: string; action: string; userId: string; createdAt: string }>>(
-      `/admin/audit-logs${query ? `?${query}` : ''}`
-    );
+    return api.get<{
+      logs: Array<{
+        id: string;
+        action: string;
+        userId: string | null;
+        entityType: string | null;
+        entityId: string | null;
+        createdAt: string;
+        user?: { id: string; name: string; email: string; avatarUrl: string | null } | null;
+      }>;
+      pagination: { page: number; limit: number; total: number; pages: number };
+    }>(`/admin/audit-logs${query ? `?${query}` : ''}`);
   },
 
   getFinanceOverview: () => api.get<{ totalRevenue: number; pendingPayouts: number; completedPayouts: number; monthlyRevenue: Array<{ month: string; amount: number }> }>('/admin/finance/overview'),

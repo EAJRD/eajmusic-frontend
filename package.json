@@ -5,20 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:server": "cd server && npm run dev",
-    "dev:all": "npm run dev:server & npm run dev",
-    "start:server": "cd server && npm start",
-    "start:all": "npm run start:server & npm run preview",
     "build:main": "cross-env VITE_APP_MODE=main vite build --outDir dist/main",
     "build:artist": "cross-env VITE_APP_MODE=artist vite build --outDir dist/artist",
     "build:eaj": "cross-env VITE_APP_MODE=admin vite build --outDir dist/eaj",
     "build": "npm run build:main && npm run build:artist && npm run build:eaj",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "preview": "vite preview",
-    "install:all": "npm install && cd server && npm install",
-    "db:migrate": "cd server && npm run db:migrate",
-    "db:seed": "cd server && npm run db:seed"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@insforge/sdk": "^1.5.2",

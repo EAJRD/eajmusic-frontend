@@ -85,7 +85,7 @@ const TrackAnalytics: React.FC = () => {
                 }));
                 setChartData(daily);
                 setTopTracks(overviewData?.topTracks || []);
-                setCountryData(overviewData?.countryBreakdown || []);
+                setCountryData((overviewData?.countryBreakdown || []).map((c) => ({ ...c, countryCode: c.countryCode || '' })));
             } catch (error) {
                 console.error('Failed to load analytics', error);
             } finally {
@@ -250,7 +250,7 @@ const TrackAnalytics: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart layout="vertical" data={countryData} margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
                                 <XAxis type="number" hide />
-                                <YAxis type="category" dataKey="countryCode" axisLine={false} tickLine={false} tick={({ x, y, payload }) => {
+                                <YAxis type="category" dataKey="countryCode" axisLine={false} tickLine={false} tick={({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
                                     const info = COUNTRY_NAMES[payload.value] || { name: payload.value, flag: '🌍' };
                                     return (
                                         <g transform={`translate(${x},${y})`}>

@@ -47,7 +47,7 @@ const UsersList: React.FC = () => {
         status: statusFilter !== 'All' ? statusFilter : undefined,
         search: searchTerm || undefined,
       });
-      setUsers(res?.users || []);
+      setUsers(res?.data || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load users.');
     } finally {

@@ -26,7 +26,7 @@
 
 *   **Distribución Global**: Acceso a Spotify, Apple Music, TikTok y 150+ tiendas.
 *   **Pagos Locales**: Integración nativa con **ATH Móvil** para artistas en PR.
-*   **Arquitectura Híbrida**: Resiliencia total con base de datos primaria en Proxmox y failover automático a Supabase.
+*   **Infraestructura propia**: API y base de datos (PostgreSQL + MinIO) en contenedores propios, expuestos vía Cloudflare Tunnel.
 *   **Soporte 24/7**: Canales directos vía WhatsApp y sistema de tickets.
 
 ---
@@ -44,9 +44,9 @@
 *   **Navegación Fluida**: SPA (Single Page Application) optimizada con Vite.
 
 ### ⚙️ Ingeniería & Backend
-*   **Failover Inteligente**: El sistema detecta si el servidor primario cae y cambia automáticamente a la réplica en la nube.
-*   **Sincronización Bidireccional**: Workflows de n8n mantienen los datos sincronizados entre entornos.
-*   **Seguridad**: Autenticación robusta y protección de endpoints.
+*   **Auth vía InsForge**: Signup, login, OAuth (Google/GitHub), verificación de email y reset de contraseña delegados a InsForge; el resto de la lógica de negocio la sirve la API propia.
+*   **Automatizaciones**: Workflows de n8n para sincronización de datos entre servicios.
+*   **Seguridad**: CSP real por header HTTP, HSTS, y protección de endpoints vía RBAC.
 
 ---
 
@@ -81,13 +81,15 @@ Construido con las herramientas más modernas para asegurar velocidad, escalabil
 
 | Área | Tecnología | Propósito |
 | :--- | :--- | :--- |
-| **Frontend** | React 18 + TypeScript | Lógica de interfaz robusta y tipada. |
+| **Frontend** | React 19 + TypeScript | Lógica de interfaz robusta y tipada. |
 | **Build Tool** | Vite | Compilación ultrarrápida y HMR. |
 | **Estilos** | TailwindCSS | Diseño responsivo y sistema de diseño consistente. |
-| **Base de Datos 1** | PostgreSQL (Proxmox) | Base de datos primaria de alto rendimiento. |
-| **Base de Datos 2** | Supabase | Réplica en la nube para failover y acceso global. |
-| **Backend** | Node.js + Express | API Gateway y lógica de negocio. |
+| **Auth** | InsForge | Signup/login/OAuth/verificación de email/reset de contraseña. |
+| **Base de Datos** | PostgreSQL + MinIO | Datos de negocio y almacenamiento de archivos, en infraestructura propia. |
+| **Backend** | Node.js + Express + Prisma | API (repo separado: `eajmusic-api`). |
 | **Automations** | n8n | Sincronización de datos y webhooks. |
+
+> Este repositorio contiene solo el frontend (tres builds de Vite independientes). El backend (`eajmusic-api`) vive en un repositorio aparte.
 
 ---
 
