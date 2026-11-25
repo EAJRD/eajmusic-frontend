@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { AudioPreviewPlayer } from '../components/AudioPreviewPlayer';
 import { ArtistService } from '../../../src/services/api';
 import type { Release, Track } from '../../../src/types/api';
 
@@ -332,7 +333,19 @@ const ReleaseDetail: React.FC<ReleaseDetailProps> = ({ releaseId, onBack }) => {
                               </span>
                             </td>
                             <td className="px-3 py-3 text-sm font-medium text-sonic-text">
-                              {track.title}
+                              <div className="flex flex-col gap-2">
+                                <span>{track.title}</span>
+                                {track.audioUrl && (
+                                  <div className="max-w-md my-1">
+                                    <AudioPreviewPlayer
+                                      src={track.audioUrl}
+                                      trackTitle={track.title}
+                                      artistName={release.artistName || 'EAJ Artist'}
+                                      duration={track.durationMs ? track.durationMs / 1000 : 0}
+                                    />
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="px-3 py-3 text-sm font-mono text-sonic-text-dim">
                               {track.isrc || '--'}
