@@ -1,3 +1,11 @@
+export interface SplitContributor {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Artist' | 'Producer' | 'Composer' | 'Songwriter' | 'Label' | 'Other';
+  percentage: number;
+}
+
 // Employee roles (SUPPORT/REVIEWER/FINANCE/ADMIN) only ever operate inside
 // the internal admin panel (eaj.eajmusic.com) — see Prisma's UserRole enum.
 export type UserRole = 'ARTIST' | 'LABEL' | 'ADMIN' | 'SUPER_ADMIN' | 'SUPPORT' | 'REVIEWER' | 'FINANCE';

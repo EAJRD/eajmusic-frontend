@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { AudioPreviewPlayer } from '../components/AudioPreviewPlayer';
+import { SplitsModal } from '../components/SplitsModal';
+import type { SplitContributor } from '../../../src/types/api';
 import { ArtistService, UploadService } from '../../../src/services/api';
 import type { ContributorRole } from '../../../src/types/api';
 import { useAuth } from '../../../src/contexts/AuthContext';
@@ -81,6 +84,8 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
 
     // File Upload State
     const [audioFiles, setAudioFiles] = useState<File[]>([]);
+    const [audioPreviews, setAudioPreviews] = useState<string[]>([]);
+    const [isSplitsModalOpen, setIsSplitsModalOpen] = useState(false);
     const [coverArt, setCoverArt] = useState<File | null>(null);
     const [coverArtPreview, setCoverArtPreview] = useState<string>('');
     const [coverArtError, setCoverArtError] = useState('');
@@ -151,9 +156,7 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
             const newFiles = Array.from(e.target.files);
             setAudioFiles(prev => {
                 const updated = [...prev, ...newFiles];
-                // Auto-update release type based on track count
                 updateReleaseType(updated.length);
-                // Initialize metadata for new tracks
                 setTrackMetadata(prevMeta => {
                     const newMeta = [...prevMeta];
                     for (let i = prevMeta.length; i < updated.length; i++) {
@@ -163,6 +166,8 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                 });
                 return updated;
             });
+            const newUrls = newFiles.map(f => URL.createObjectURL(f));
+            setAudioPreviews(prev => [...prev, ...newUrls]);
         }
     };
 
@@ -509,6 +514,15 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                                             onChange={(e) => updateTrackMetadata(index, 'isrc', e.target.value)}
                                             className="w-full bg-sonic-surface border border-sonic-border rounded px-2.5 py-1.5 text-xs font-mono text-sonic-text placeholder-sonic-text-dim focus:outline-none focus:border-sonic-primary focus:ring-1 focus:ring-sonic-primary"
                                         />
+                                        {audioPreviews[index] && (
+                                            <div className="mt-2">
+                                                <AudioPreviewPlayer
+                                                    src={audioPreviews[index]}
+                                                    trackTitle={trackMetadata[index]?.title || file.name}
+                                                    artistName={trackMetadata[index]?.artists || artistName || 'Artista EAJ'}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -858,6 +872,28 @@ const NewRelease: React.FC<NewReleaseProps> = ({ onComplete, onCancel }) => {
                 <span className="material-symbols-outlined shrink-0">warning</span>
                 <p className="text-xs leading-relaxed">Please ensure you have cleared all samples. Uploading unlicensed content may result in a permanent ban from the platform.</p>
             </div>
+
+            <SplitsModal
+                isOpen={isSplitsModalOpen}
+                onClose={() => setIsSplitsModalOpen(false)}
+                trackTitle={releaseTitle || 'Lanzamiento General'}
+                initialSplits={contributors.map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    email: '',
+                    role: (c.role === 'Primary Artist' ? 'Artist' : c.role === 'Featured Artist' ? 'Artist' : c.role === 'Producer' ? 'Producer' : c.role === 'Songwriter' ? 'Songwriter' : 'Other') as any,
+                    percentage: parseFloat(c.share) || 0,
+                }))}
+                onSave={(newSplits) => {
+                    const mapped = newSplits.map((s, idx) => ({
+                        id: s.id || String(Date.now() + idx),
+                        name: s.name,
+                        role: s.role === 'Artist' ? (idx === 0 ? 'Primary Artist' : 'Featured Artist') : s.role === 'Producer' ? 'Producer' : s.role === 'Songwriter' ? 'Songwriter' : 'Other',
+                        share: String(s.percentage),
+                    }));
+                    setContributors(mapped);
+                }}
+            />
         </div>
     );
 
